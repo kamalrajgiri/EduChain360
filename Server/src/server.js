@@ -1,17 +1,44 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import dotenv from 'dotenv';
+
+import { testConnection } from './config/db.js';
+import apiRoutes from './routes/index.js';
+import { notFound, errorHandler } from './middleware/errorHandler.js';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
-app.use(express.json());
+// ---- Global middleware ----
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+if (process.env.NODE_ENV !== 'production') {
+  app.use(morgan('dev'));
+}
 
-app.get('/', (req, res) => {
-  res.json({ message: "Welcome to EduChain360 API Gateway" });
-});
+// ---- Routes ----
+app.use('/api', apiRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// ---- Error handling ----
+app.use(notFound);
+app.use(errorHandler);
+
+// ---- Boot ----
+async function start() {
+  await testConnection();
+  app.listen(PORT, () => {
+    console.log(`🚀 EduChain360 API running on http://localhost:${PORT}`);
+    console.log(`   Health: http://localhost:${PORT}/api/health`);
+  });
+}
+
+start();
