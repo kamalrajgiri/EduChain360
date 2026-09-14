@@ -6,13 +6,15 @@ import Spinner from './components/Spinner.jsx';
 import Login from './pages/Login.jsx';
 import Unauthorized from './pages/Unauthorized.jsx';
 
-import AdminDashboard        from './pages/admin/Dashboard.jsx';
-import TeacherDashboard      from './pages/teacher/Dashboard.jsx';
-import StudentDashboard      from './pages/student/Dashboard.jsx';
-import ParentDashboard       from './pages/parent/Dashboard.jsx';
-import AccountantDashboard   from './pages/accountant/Dashboard.jsx';
-import LibrarianDashboard    from './pages/librarian/Dashboard.jsx';
-import HRDashboard           from './pages/hr/Dashboard.jsx';
+import AdminDashboard from './pages/admin/Dashboard.jsx';
+import TeacherDashboard from './pages/teacher/Dashboard.jsx';
+import StudentDashboard from './pages/student/Dashboard.jsx';
+import StudentAttendance from './pages/student/Attendance.jsx';
+import StudentComingSoon from './pages/student/ComingSoon.jsx';
+import ParentDashboard from './pages/parent/Dashboard.jsx';
+import AccountantDashboard from './pages/accountant/Dashboard.jsx';
+import LibrarianDashboard from './pages/librarian/Dashboard.jsx';
+import HRDashboard from './pages/hr/Dashboard.jsx';
 import LabAssistantDashboard from './pages/lab/Dashboard.jsx';
 
 export const ROLE_HOME = {
@@ -62,6 +64,28 @@ export default function App() {
           {/* Student */}
           <Route path="/student"
             element={<ProtectedRoute allowedRoles={['Student']}><StudentDashboard /></ProtectedRoute>} />
+          <Route path="/student/attendance"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentAttendance /></ProtectedRoute>} />
+          <Route path="/student/results"
+            element={<ProtectedRoute allowedRoles={['Student']}>
+              <StudentComingSoon title="Results" subtitle="Examination results & report card" part="D" />
+            </ProtectedRoute>} />
+          <Route path="/student/fees"
+            element={<ProtectedRoute allowedRoles={['Student']}>
+              <StudentComingSoon title="Fees" subtitle="Fee structure, payments & receipts" part="E" />
+            </ProtectedRoute>} />
+          <Route path="/student/certificates"
+            element={<ProtectedRoute allowedRoles={['Student']}>
+              <StudentComingSoon title="My Certificates" subtitle="Blockchain-verified credentials" part="F" />
+            </ProtectedRoute>} />
+          <Route path="/student/library"
+            element={<ProtectedRoute allowedRoles={['Student']}>
+              <StudentComingSoon title="Library" subtitle="Your borrowed books" part="F" />
+            </ProtectedRoute>} />
+          <Route path="/student/profile"
+            element={<ProtectedRoute allowedRoles={['Student']}>
+              <StudentComingSoon title="My Profile" subtitle="Personal details & security" part="F" />
+            </ProtectedRoute>} />
 
           {/* Parent */}
           <Route path="/parent"
