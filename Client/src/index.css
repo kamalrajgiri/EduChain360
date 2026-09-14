@@ -1,2 +1,62 @@
 @import "tailwindcss";
-  
+
+@theme {
+  /* ==========================================================================
+     1. BRAND PRIMARY (Navy Scale)
+     ========================================================================== */
+  --color-primary: #072c82; /* Navy 800 - Main brand color, navbar, primary buttons */
+  --color-primary-hover: #0e3dab; /* Navy 700 - Primary action hover state */
+  --color-primary-active: #1e53d0; /* Navy 600 - Active / focused links & elements */
+  --color-primary-dark: #051c54; /* Navy 900 - Deep brand headers */
+  --color-primary-light: #dde6fb; /* Navy 100 - Light blue badge / container background */
+  --color-primary-subtle: #f0f4fe; /* Navy 50  - Subtle blue table row / background tint */
+
+  /* ==========================================================================
+     2. ACCENT & SECONDARY (Indigo Scale / Blockchain Anchored)
+     ========================================================================== */
+  --color-secondary: #3831a1; /* Indigo 700 - Secondary brand, blockchain action */
+  --color-secondary-hover: #4e46bf; /* Indigo 600 - Secondary action hover state */
+  --color-secondary-active: #6a63dc; /* Indigo 500 - Highlight / active state */
+  --color-secondary-dark: #262078; /* Indigo 800 - Dark indigo contrast elements */
+  --color-secondary-light: #e4e2fa; /* Indigo 100 - Secondary button fill */
+  --color-secondary-subtle: #f3f2fd; /* Indigo 50  - Verified badge tint */
+
+  /* ==========================================================================
+     3. LAYOUT, SURFACES & BORDERS (Canvas Scale)
+     ========================================================================== */
+  --color-background: #f8f7f7; /* Canvas Off-White - Main app page background */
+  --color-surface: #ffffff; /* Canvas Pure - White card, modal, & panel backgrounds */
+  --color-border: #eae8e8; /* Neutral Light - Card borders, dividers, inputs */
+  --color-border-hover: #8c8989; /* Neutral Mid - Darker border on hover/focus */
+
+  /* ==========================================================================
+     4. TYPOGRAPHY & TEXT ROLES
+     ========================================================================== */
+  --color-text-main: #2b2929; /* Neutral Dark - Primary body text & headings */
+  --color-text-muted: #8c8989; /* Neutral Mid - Subtitles, placeholders, captions */
+  --color-text-inverse: #ffffff; /* Canvas Pure - White text on dark buttons */
+
+  /* ==========================================================================
+     5. BUTTON ACTION SPECIFICS (From Design Guide)
+     ========================================================================== */
+  --color-action-primary: #072c82; /* Navy 800 */
+  --color-action-indigo: #3831a1; /* Indigo 700 */
+  --color-action-secondary: #e4e2fa; /* Indigo 100 */
+  --color-action-ghost: #f8f7f7; /* Canvas Off-White */
+
+  /* ==========================================================================
+     6. SYSTEM STATUS & STATE INDICATORS
+     ========================================================================== */
+  --color-status-verified: #1e6b3c; /* Green - Verified / Success */
+  --color-status-pending: #9c6b05; /* Amber - Pending / Warning */
+  --color-status-tampered: #a32d2d; /* Red - Tampered / Danger */
+  --color-status-info: #072c82; /* Navy - Informational */
+  --color-status-neutral: #8c8989; /* Gray - Neutral status */
+  --color-status-blockchain: #3831a1; /* Indigo - Blockchain-anchored status */
+
+  /* Quick status aliases */
+  --color-success: #1e6b3c;
+  --color-warning: #9c6b05;
+  --color-danger: #a32d2d;
+  --color-info: #072c82;
+}
