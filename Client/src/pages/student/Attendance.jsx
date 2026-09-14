@@ -156,7 +156,7 @@ export default function StudentAttendance() {
                 </div>
               </div>
 
-              <table className="w-full text-xs min-w-[520px]">
+              <table className="w-full text-xs min-w-130">
                 <thead className="bg-background text-[10px] uppercase tracking-wider text-text-muted">
                   <tr>
                     <th className="text-left px-3 py-2 font-semibold">Time</th>
