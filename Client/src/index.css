@@ -1,2 +1,44 @@
 @import "tailwindcss";
-  
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* PRIMARY — Navy: brand, navigation, primary actions */
+  --color-navy-900: #051C54;
+  --color-navy-800: #072C82;
+  --color-navy-700: #0E3DAB;
+  --color-navy-600: #1E53D0;
+  --color-navy-100: #DDE6FB;
+  --color-navy-50: #F0F4FE;
+
+  /* ACCENT — Indigo: verified states, highlights, secondary actions */
+  --color-indigo-800: #262078;
+  --color-indigo-700: #3831A1;
+  --color-indigo-600: #4E46BF;
+  --color-indigo-500: #6A63DC;
+  --color-indigo-100: #E4E2FA;
+  --color-indigo-50: #F3F2FD;
+
+  /* NEUTRAL — Canvas: backgrounds, surfaces, borders */
+  --color-canvas-offwhite: #F8F7F7;
+  --color-neutral-light: #EAE8E8;
+  --color-neutral-mid: #8C8989;
+  --color-neutral-dark: #2B2929;
+
+  /* STATUS */
+  --color-success: #1E6B3C;
+  --color-warning: #9C6B05;
+  --color-danger: #A32D2D;
+  --color-info: #072C82;
+  --color-anchored: #3831A1;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  background-color: #F8F7F7;
+}
+
+.dark body {
+  background-color: #051C54;
+}
