@@ -5,7 +5,6 @@ function todayCode() {
   return map[new Date().getDay()];
 }
 
-/** Returns the student's single enrollment (class + roll) or null. */
 async function getEnrollment(studentId) {
   const [rows] = await pool.query(
     `SELECT e.class_id, e.roll_number, c.name AS class_name, c.academic_year
@@ -18,7 +17,6 @@ async function getEnrollment(studentId) {
   return rows[0] || null;
 }
 
-/** Compute letter grade from percentage. */
 function gradeFromPct(pct) {
   if (pct >= 90) return 'A+';
   if (pct >= 80) return 'A';
@@ -29,16 +27,15 @@ function gradeFromPct(pct) {
   return 'F';
 }
 
-/**
- * GET /api/student/dashboard
- * Single round-trip: KPIs + today's timetable + recent notices + cert preview.
- */
+/* ═══════════════════════════════════════════════════════════════
+   DASHBOARD
+   ═══════════════════════════════════════════════════════════════ */
+
 export async function getDashboard(req, res, next) {
   try {
     const studentId = req.user.id;
     const enrollment = await getEnrollment(studentId);
 
-    // --- Attendance this month ---
     const [attRows] = await pool.query(
       `SELECT
          COUNT(*)                 AS total,
@@ -56,7 +53,6 @@ export async function getDashboard(req, res, next) {
       ? Math.round((Number(att.present) / Number(att.total)) * 1000) / 10
       : 0;
 
-    // --- Latest submitted exam aggregate ---
     const [examRows] = await pool.query(
       `SELECT e.id, e.name, e.full_marks, m.marks_obtained, m.grade
          FROM exam_marks m
@@ -79,7 +75,6 @@ export async function getDashboard(req, res, next) {
       };
     }
 
-    // --- Fee due ---
     const [feeRows] = await pool.query(
       `SELECT
          COALESCE(SUM(CASE WHEN status='UNPAID' THEN amount ELSE 0 END), 0) AS due,
@@ -89,13 +84,11 @@ export async function getDashboard(req, res, next) {
       [studentId]
     );
 
-    // --- Certificate count ---
     const [certCntRows] = await pool.query(
       `SELECT COUNT(*) AS count FROM academic_credentials WHERE student_id = ?`,
       [studentId]
     );
 
-    // --- Recent certificates preview ---
     const [recentCerts] = await pool.query(
       `SELECT credential_uuid, title, issue_date, is_anchored
          FROM academic_credentials
@@ -105,7 +98,6 @@ export async function getDashboard(req, res, next) {
       [studentId]
     );
 
-    // --- Today's timetable ---
     const day = todayCode();
     let todayTimetable = [];
     if (enrollment) {
@@ -124,7 +116,6 @@ export async function getDashboard(req, res, next) {
       todayTimetable = ttRows;
     }
 
-    // --- Recent notices (students see ALL + STUDENTS) ---
     const [noticeRows] = await pool.query(
       `SELECT id, title, audience, published_at
          FROM notices
@@ -165,16 +156,15 @@ export async function getDashboard(req, res, next) {
   }
 }
 
-/**
- * GET /api/student/attendance
- * Monthly summary + last 30 entries + weekly timetable snapshot.
- */
+/* ═══════════════════════════════════════════════════════════════
+   ATTENDANCE
+   ═══════════════════════════════════════════════════════════════ */
+
 export async function getAttendance(req, res, next) {
   try {
     const studentId = req.user.id;
     const enrollment = await getEnrollment(studentId);
 
-    // Monthly summary
     const [summaryRows] = await pool.query(
       `SELECT
          COUNT(*)                 AS total,
@@ -192,7 +182,6 @@ export async function getAttendance(req, res, next) {
       ? Math.round((Number(summary.present) / Number(summary.total)) * 1000) / 10
       : 0;
 
-    // History — last 30 records, newest first
     const [historyRows] = await pool.query(
       `SELECT a.attendance_date, a.status,
               s.name AS subject,
@@ -207,7 +196,6 @@ export async function getAttendance(req, res, next) {
       [studentId]
     );
 
-    // Weekly timetable snapshot (MON–FRI)
     let weekTimetable = [];
     if (enrollment) {
       const [ttRows] = await pool.query(
@@ -237,15 +225,14 @@ export async function getAttendance(req, res, next) {
   }
 }
 
-/**
- * GET /api/student/results
- * Exam results grouped by exam (latest first) + aggregate + class rank.
- */
+/* ═══════════════════════════════════════════════════════════════
+   RESULTS
+   ═══════════════════════════════════════════════════════════════ */
+
 export async function getResults(req, res, next) {
   try {
     const studentId = req.user.id;
 
-    // All submitted marks with exam + subject
     const [rows] = await pool.query(
       `SELECT e.id AS exam_id, e.name AS exam_name, e.exam_date, e.full_marks,
               s.name AS subject, s.code AS subject_code,
@@ -258,7 +245,6 @@ export async function getResults(req, res, next) {
       [studentId]
     );
 
-    // Group by exam
     const byExam = {};
     for (const r of rows) {
       if (!byExam[r.exam_id]) {
@@ -291,7 +277,6 @@ export async function getResults(req, res, next) {
       };
     });
 
-    // Class rank (based on the latest exam aggregate) — if enrolled
     const enrollment = await getEnrollment(studentId);
     let classRank = null;
     let classSize = 0;
@@ -323,10 +308,10 @@ export async function getResults(req, res, next) {
   }
 }
 
-/**
- * GET /api/student/fees
- * Current term structure (invoices) + payment history (receipts).
- */
+/* ═══════════════════════════════════════════════════════════════
+   FEES
+   ═══════════════════════════════════════════════════════════════ */
+
 export async function getFees(req, res, next) {
   try {
     const studentId = req.user.id;
@@ -365,11 +350,6 @@ export async function getFees(req, res, next) {
   }
 }
 
-/**
- * GET /api/student/fees/receipts/:id
- * Single receipt detail (for the printable receipt page).
- * Row-level: 404 if the receipt doesn't belong to this student.
- */
 export async function getReceipt(req, res, next) {
   try {
     const studentId = req.user.id;
@@ -400,8 +380,69 @@ export async function getReceipt(req, res, next) {
 }
 
 /**
- * GET /api/student/certificates
+ * POST /api/student/fees/pay
+ * Mock payment. Body: { method }
  */
+export async function payFees(req, res, next) {
+  const conn = await pool.getConnection();
+  try {
+    const studentId = req.user.id;
+    const method = String(req.body?.method || '').trim();
+    const allowed = ['eSewa', 'Khalti', 'Bank transfer'];
+    if (!allowed.includes(method)) {
+      conn.release();
+      return res.status(400).json({ success: false, message: 'Invalid payment method' });
+    }
+
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      `SELECT COALESCE(SUM(amount), 0) AS due
+         FROM fee_invoices
+        WHERE student_id = ? AND status = 'UNPAID'`,
+      [studentId]
+    );
+    const amount = Number(rows[0].due);
+    if (amount <= 0) {
+      await conn.rollback();
+      conn.release();
+      return res.status(400).json({ success: false, message: 'No outstanding dues' });
+    }
+
+    const receiptNumber = `RCPT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const [ins] = await conn.query(
+      `INSERT INTO fee_receipts
+         (receipt_number, student_id, amount, payment_status, payment_method)
+       VALUES (?, ?, ?, 'PAID', ?)`,
+      [receiptNumber, studentId, amount, method]
+    );
+    const receiptId = ins.insertId;
+
+    await conn.query(
+      `UPDATE fee_invoices SET status = 'PAID'
+        WHERE student_id = ? AND status = 'UNPAID'`,
+      [studentId]
+    );
+
+    await conn.commit();
+    conn.release();
+
+    res.json({
+      success: true,
+      message: 'Payment recorded',
+      data: { receiptId, receiptNumber, amount, method }
+    });
+  } catch (err) {
+    try { await conn.rollback(); } catch { /* ignore */ }
+    conn.release();
+    next(err);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CERTIFICATES
+   ═══════════════════════════════════════════════════════════════ */
+
 export async function getCertificates(req, res, next) {
   try {
     const studentId = req.user.id;
@@ -418,10 +459,6 @@ export async function getCertificates(req, res, next) {
   }
 }
 
-/**
- * GET /api/student/certificates/:uuid
- * Single certificate detail for the QR view page.
- */
 export async function getCertificate(req, res, next) {
   try {
     const studentId = req.user.id;
@@ -450,16 +487,15 @@ export async function getCertificate(req, res, next) {
   }
 }
 
-/**
- * GET /api/student/library
- * My borrowed books + catalog search (?q=...).
- */
+/* ═══════════════════════════════════════════════════════════════
+   LIBRARY
+   ═══════════════════════════════════════════════════════════════ */
+
 export async function getLibrary(req, res, next) {
   try {
     const studentId = req.user.id;
     const query = (req.query.q || '').trim();
 
-    // My issues (currently issued + history)
     const [myIssues] = await pool.query(
       `SELECT bi.id, bi.issued_on, bi.due_date, bi.returned_on, bi.status,
               b.title, b.author
@@ -470,7 +506,6 @@ export async function getLibrary(req, res, next) {
       [studentId]
     );
 
-    // Catalog search
     let catalog = [];
     if (query.length > 0) {
       const like = `%${query}%`;
@@ -486,6 +521,226 @@ export async function getLibrary(req, res, next) {
     }
 
     res.json({ success: true, data: { myIssues, catalog, query } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NOTICES
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function getNotices(req, res, next) {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, title, message, audience, published_at
+         FROM notices
+        WHERE status = 'SENT'
+          AND audience IN ('ALL','STUDENTS')
+        ORDER BY published_at DESC`
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getNotice(req, res, next) {
+  try {
+    const noticeId = Number(req.params.id);
+
+    const [rows] = await pool.query(
+      `SELECT id, title, message, audience, published_at,
+              (SELECT full_name FROM users WHERE id = published_by) AS published_by_name
+         FROM notices
+        WHERE id = ?
+          AND status = 'SENT'
+          AND audience IN ('ALL','STUDENTS')
+        LIMIT 1`,
+      [noticeId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Notice not found' });
+    }
+    res.json({ success: true, data: rows[0] });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PROFILE — edit, password, photo
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function updateProfile(req, res, next) {
+  try {
+    const studentId = req.user.id;
+    const { phone_number, full_name } = req.body;
+
+    const sets = [];
+    const values = [];
+
+    if (typeof phone_number === 'string') {
+      const cleaned = phone_number.trim();
+      if (cleaned.length > 0 && !/^[+0-9\-\s]{7,20}$/.test(cleaned)) {
+        return res.status(400).json({ success: false, message: 'Invalid phone number format' });
+      }
+      sets.push('phone_number = ?');
+      values.push(cleaned || null);
+    }
+
+    if (typeof full_name === 'string' && full_name.trim().length >= 2) {
+      sets.push('full_name = ?');
+      values.push(full_name.trim());
+    }
+
+    if (sets.length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid fields to update' });
+    }
+
+    values.push(studentId);
+
+    await pool.query(
+      `UPDATE users SET ${sets.join(', ')} WHERE id = ?`,
+      values
+    );
+
+    const [rows] = await pool.query(
+      `SELECT u.id, u.full_name, u.email, u.phone_number,
+              u.school_id_number, u.avatar_data, r.name AS role
+         FROM users u
+         JOIN roles r ON r.id = u.role_id
+        WHERE u.id = ?
+        LIMIT 1`,
+      [studentId]
+    );
+
+    res.json({ success: true, message: 'Profile updated', data: rows[0] });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function changePassword(req, res, next) {
+  try {
+    const studentId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current and new password required' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT password_hash FROM users WHERE id = ? LIMIT 1',
+      [studentId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (rows[0].password_hash !== currentPassword) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    await pool.query(
+      'UPDATE users SET password_hash = ? WHERE id = ?',
+      [newPassword, studentId]
+    );
+
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateAvatar(req, res, next) {
+  try {
+    const { dataUrl } = req.body;
+
+    if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
+      return res.status(400).json({ success: false, message: 'Invalid image data' });
+    }
+    if (dataUrl.length > 2_000_000) {
+      return res.status(413).json({ success: false, message: 'Image too large (max ~1.5 MB)' });
+    }
+
+    await pool.query('UPDATE users SET avatar_data = ? WHERE id = ?', [dataUrl, req.user.id]);
+    res.json({ success: true, message: 'Photo updated' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function clearAvatar(req, res, next) {
+  try {
+    await pool.query('UPDATE users SET avatar_data = NULL WHERE id = ?', [req.user.id]);
+    res.json({ success: true, message: 'Photo removed' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SEARCH
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function search(req, res, next) {
+  try {
+    const studentId = req.user.id;
+    const q = (req.query.q || '').trim();
+    if (q.length < 2) {
+      return res.json({ success: true, data: { books: [], notices: [], certificates: [], subjects: [] } });
+    }
+    const like = `%${q}%`;
+
+    const [books] = await pool.query(
+      `SELECT id, title, author, category, available_copies
+         FROM books
+        WHERE title LIKE ? OR author LIKE ? OR category LIKE ?
+        LIMIT 5`,
+      [like, like, like]
+    );
+
+    const [notices] = await pool.query(
+      `SELECT id, title, audience, published_at
+         FROM notices
+        WHERE status = 'SENT'
+          AND audience IN ('ALL','STUDENTS')
+          AND (title LIKE ? OR message LIKE ?)
+        ORDER BY published_at DESC
+        LIMIT 5`,
+      [like, like]
+    );
+
+    const [certificates] = await pool.query(
+      `SELECT id, credential_uuid, title, issue_date, is_anchored
+         FROM academic_credentials
+        WHERE student_id = ?
+          AND title LIKE ?
+        ORDER BY issue_date DESC
+        LIMIT 5`,
+      [studentId, like]
+    );
+
+    const [subjects] = await pool.query(
+      `SELECT DISTINCT s.id, s.name, s.code
+         FROM subjects s
+         JOIN class_subjects cs ON cs.subject_id = s.id
+         JOIN enrollments e ON e.class_id = cs.class_id
+        WHERE e.student_id = ?
+          AND (s.name LIKE ? OR s.code LIKE ?)
+        LIMIT 5`,
+      [studentId, like, like]
+    );
+
+    res.json({
+      success: true,
+      data: { books, notices, certificates, subjects }
+    });
   } catch (err) {
     next(err);
   }

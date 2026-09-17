@@ -8,7 +8,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // On mount: if we have a token, verify it by fetching /me
+  // On mount: verify token by fetching /me
   useEffect(() => {
     let cancelled = false;
     async function bootstrap() {
@@ -42,8 +42,13 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  // Merge a partial update into the current user
+  const updateUser = useCallback((patch) => {
+    setUser((prev) => (prev ? { ...prev, ...patch } : prev));
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

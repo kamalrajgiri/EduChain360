@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
-import Spinner from '../../components/Spinner.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { useFetch } from '../../hooks/useFetch.js';
 import { getDashboard } from '../../api/student.js';
+import { SkeletonDashboard } from '../../components/Skeleton.jsx';
+import ErrorState from '../../components/ErrorState.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
 
 const DAY_LABEL = {
   MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday',
@@ -22,28 +24,13 @@ function Kpi({ label, value, hint, tone = 'primary', icon }) {
   };
   return (
     <div className="bg-surface border border-border rounded-2xl p-5">
-      <div className="flex items-start justify-between mb-3">
-        <div className={`h-9 w-9 rounded-lg grid place-items-center ${toneMap[tone]}`}>
-          <span className="text-xs font-bold">{icon || '●'}</span>
-        </div>
+      <div className={`h-9 w-9 rounded-lg grid place-items-center mb-3 ${toneMap[tone]}`}>
+        <span className="text-xs font-bold">{icon || '●'}</span>
       </div>
       <p className="text-xs text-text-muted">{label}</p>
       <p className="text-2xl font-bold text-text-main mt-1">{value}</p>
       {hint && <p className="text-[11px] text-text-muted mt-1">{hint}</p>}
     </div>
-  );
-}
-
-function GradeBadge({ grade }) {
-  const tone =
-    grade === 'A+' || grade === 'A' ? 'bg-status-verified/10 text-status-verified' :
-    grade === 'B+' || grade === 'B' ? 'bg-primary-subtle text-primary' :
-    grade === 'C'                    ? 'bg-status-pending/10 text-status-pending' :
-                                       'bg-status-tampered/10 text-status-tampered';
-  return (
-    <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${tone}`}>
-      {grade}
-    </span>
   );
 }
 
@@ -61,24 +48,7 @@ function VerifiedBadge() {
 
 export default function StudentDashboard() {
   const { user } = useAuth();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await getDashboard();
-        if (!cancelled) setData(res);
-      } catch (err) {
-        if (!cancelled) setError(err.response?.data?.message || 'Failed to load dashboard');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  const { data, loading, error, retry } = useFetch(() => getDashboard(), []);
 
   const firstName = user?.full_name?.split(' ')[0] || 'Student';
   const enrollment = data?.enrollment;
@@ -92,22 +62,32 @@ export default function StudentDashboard() {
           : 'Student dashboard'
       }
     >
-      {loading && (
-        <div className="py-24 grid place-items-center">
-          <Spinner size="lg" label="Loading your dashboard..." />
-        </div>
+      {/* ─── Loading skeleton ────────────────────────── */}
+      {loading && <SkeletonDashboard />}
+
+      {/* ─── Error ───────────────────────────────────── */}
+      {!loading && error && (
+        <ErrorState
+          title="Couldn't load your dashboard"
+          message={error}
+          onRetry={retry}
+        />
       )}
 
-      {error && (
-        <div className="rounded-lg border border-status-tampered/30 bg-status-tampered/5 px-4 py-3 text-sm text-status-tampered">
-          {error}
-        </div>
+      {/* ─── Empty (no enrollment yet) ───────────────── */}
+      {!loading && !error && data && !enrollment && (
+        <EmptyState
+          icon="🎓"
+          title="You're not enrolled in a class yet"
+          message="Once your admission is finalized and you're assigned to a class, your dashboard will populate with attendance, results, fees, and certificates."
+        />
       )}
 
-      {data && !loading && (
+      {/* ─── Loaded ──────────────────────────────────── */}
+      {!loading && !error && data && enrollment && (
         <div className="space-y-6">
 
-          {/* ── Row 1 · KPI cards ─────────────────────────── */}
+          {/* KPIs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <Kpi
               label="Attendance this month"
@@ -129,7 +109,7 @@ export default function StudentDashboard() {
             />
             <Kpi
               label="Fee due this term"
-              value={`NPR ${data.fees.due.toLocaleString()}`}
+              value={`NPR ${data.fees.due.toLocaleString('en-IN')}`}
               hint={
                 data.fees.nextDueDate
                   ? `Due ${new Date(data.fees.nextDueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
@@ -147,13 +127,13 @@ export default function StudentDashboard() {
             />
           </div>
 
-          {/* ── Row 2 · Today's timetable ─────────────────── */}
+          {/* Today's timetable */}
           <section className="bg-surface border border-border rounded-2xl overflow-hidden">
             <header className="px-5 py-4 border-b border-border flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-bold text-text-main">Today's timetable</h2>
                 <p className="text-xs text-text-muted">
-                  {enrollment?.class_name || '—'} · {DAY_LABEL[data.day] || ''}
+                  {enrollment.class_name} · {DAY_LABEL[data.day] || ''}
                 </p>
               </div>
               <Link
@@ -201,14 +181,17 @@ export default function StudentDashboard() {
             )}
           </section>
 
-          {/* ── Row 3 · Notices + certificates ────────────── */}
+          {/* Notices + certificates */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             {/* Recent notices */}
             <section className="bg-surface border border-border rounded-2xl overflow-hidden">
               <header className="px-5 py-4 border-b border-border flex items-center justify-between">
                 <h2 className="text-sm font-bold text-text-main">Recent notices</h2>
-                <Link to="/student" className="text-xs font-medium text-primary hover:text-primary-active">
+                <Link
+                  to="/student/notices"
+                  className="text-xs font-medium text-primary hover:text-primary-active"
+                >
                   View all →
                 </Link>
               </header>
@@ -255,7 +238,9 @@ export default function StudentDashboard() {
                         Issued {new Date(c.issue_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </p>
                     </div>
-                    {c.is_anchored ? <VerifiedBadge /> : (
+                    {c.is_anchored ? (
+                      <VerifiedBadge />
+                    ) : (
                       <span className="text-[10px] text-text-muted">Pending</span>
                     )}
                   </li>
@@ -267,6 +252,7 @@ export default function StudentDashboard() {
                 )}
               </ul>
             </section>
+
           </div>
 
         </div>

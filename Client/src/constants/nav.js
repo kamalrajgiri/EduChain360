@@ -11,7 +11,8 @@ export const NAV = {
     { code: 'RE', label: 'Results',      path: '/student/results' },
     { code: 'FE', label: 'Fees',         path: '/student/fees' },
     { code: 'CE', label: 'Certificates', path: '/student/certificates' },
-    { code: 'LI', label: 'Library',      path: '/student/library' }
+    { code: 'LI', label: 'Library',      path: '/student/library' },
+    { code: 'NO', label: 'Notices',      path: '/student/notices' }
   ],
 
   Admin: [

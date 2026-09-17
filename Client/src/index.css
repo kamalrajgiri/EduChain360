@@ -62,3 +62,82 @@
   --color-danger: #a32d2d;
   --color-info: #072c82;
 }
+
+
+/* ==========================================================================
+   Print styles — document-ready output for receipts, certificates, results
+   ========================================================================== */
+@media print {
+  @page { margin: 1cm; size: A4; }
+
+  html, body {
+    background: #ffffff !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide EVERYTHING by default */
+  body * { visibility: hidden !important; }
+
+  /* Show only the printable document */
+  .print-doc,
+  .print-doc * { visibility: visible !important; }
+
+  /* Lift it to top-left, ignoring document flow */
+  .print-doc {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Explicit hide for anything still lingering */
+  .print-hide { display: none !important; }
+
+  .print-keep {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+@keyframes dropdown {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+/* Smoother drawer slide for mobile */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+/* ==========================================================================
+   Dropdown entry animation (used by NotificationBell + UserMenu)
+   ========================================================================== */
+@keyframes dropdown {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+.animate-dropdown {
+  animation: dropdown 150ms ease-out;
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .animate-dropdown { animation: none !important; }
+}
