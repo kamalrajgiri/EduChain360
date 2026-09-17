@@ -72,3 +72,25 @@ INSERT IGNORE INTO roles (id, name) VALUES
 (6, 'Librarian'), 
 (7, 'HR'), 
 (8, 'Lab Assistant');
+
+-- Teachers Table
+CREATE TABLE IF NOT EXISTS teachers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    employee_code VARCHAR(50) UNIQUE NOT NULL,
+    department VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Teacher Class Assignments
+CREATE TABLE IF NOT EXISTS teacher_classes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    teacher_id INT NOT NULL,
+    class_name VARCHAR(50) NOT NULL,
+    subject VARCHAR(100) NOT NULL,
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
+);
+
+ALTER TABLE users
+  ADD COLUMN avatar_data MEDIUMTEXT NULL AFTER id_card_photo_url;

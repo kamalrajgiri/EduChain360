@@ -1,0 +1,31 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="coreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B6C99"/>
+      <stop offset="100%" stop-color="#1B2159"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Core badge: represents the record / block being verified -->
+  <circle cx="256" cy="256" r="163" fill="url(#coreGrad)"/>
+
+  <!-- Chain ring: 10 links spaced around a full 360-degree circle -->
+  <g fill="#1C8AA6">
+    <g transform="rotate(0 256 256)"><rect x="227" y="55" width="58" height="17" rx="8.5"/></g>
+    <g transform="rotate(36 256 256)"><rect x="227" y="55" width="58" height="17" rx="8.5"/></g>
+    <g transform="rotate(72 256 256)"><rect x="227" y="55" width="58" height="17" rx="8.5"/></g>
+    <g transform="rotate(108 256 256)"><rect x="227" y="55" width="58" height="17" rx="8.5"/></g>
+    <g transform="rotate(144 256 256)"><rect x="227" y="55" width="58" height="17" rx="8.5"/></g>
+    <g transform="rotate(180 256 256)"><rect x="227" y="55" width="58" height="17" rx="8.5"/></g>
+    <g transform="rotate(216 256 256)"><rect x="227" y="55" width="58" height="17" rx="8.5"/></g>
+    <g transform="rotate(252 256 256)"><rect x="227" y="55" width="58" height="17" rx="8.5"/></g>
+    <g transform="rotate(288 256 256)"><rect x="227" y="55" width="58" height="17" rx="8.5"/></g>
+    <g transform="rotate(324 256 256)"><rect x="227" y="55" width="58" height="17" rx="8.5"/></g>
+  </g>
+
+  <!-- Graduation cap: education -->
+  <polygon points="256,193 313,246 256,299 199,246" fill="#FFFFFF"/>
+  <ellipse cx="256" cy="262" rx="38" ry="13" fill="#FFFFFF"/>
+  <path d="M256 246 L293 292" stroke="#E8A33D" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <circle cx="293" cy="292" r="9" fill="#E8A33D"/>
+</svg>
