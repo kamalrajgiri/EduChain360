@@ -1,110 +1,48 @@
-import React from "react";
-import {
-  Routes,
-  Route,
-  Navigate
-} from "react-router-dom";
-
-import AdminLayout from "./components/admin/AdminLayout";
-
-import Dashboard from "./pages/admin/Dashboard";
-import Admissions from "./pages/admin/Admissions";
-import Users from "./pages/admin/Users";
-import Academics from "./pages/admin/Academics";
-import Finance from "./pages/admin/Finance";
-import Library from "./pages/admin/Library";
-import Hr from "./pages/admin/Hr";
-import Analytics from "./pages/admin/Analytics";
-import Blockchain from "./pages/admin/Blockchain";
-import Settings from "./pages/admin/Settings";
-
-function App() {
-  return (
-    <Routes>
-
-      <Route
-        path="/admin"
-        element={<AdminLayout />}
-      >
-
-        <Route
-          index
-          element={<Dashboard />}
-        />
-
-        <Route
-          path="admissions"
-          element={<Admissions />}
-        />
-
-        <Route
-          path="users"
-          element={<Users />}
-        />
-
-        <Route
-          path="academics"
-          element={<Academics />}
-        />
-
-        <Route
-          path="finance"
-          element={<Finance />}
-        />
-
-        <Route
-          path="library"
-          element={<Library />}
-        />
-
-        <Route
-          path="hr"
-          element={<Hr />}
-        />
-
-        <Route
-          path="analytics"
-          element={<Analytics />}
-        />
-
-        <Route
-          path="blockchain"
-          element={<Blockchain />}
-        />
-
-        <Route
-          path="settings"
-          element={<Settings />}
-        />
-
-      </Route>
-
-      <Route
-        path="*"
-        element={
-          <Navigate
-            to="/admin"
-            replace
-          />
-        }
-      />
-
-    </Routes>
-  );
-}
-
-export default App;
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Spinner from './components/Spinner.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
+// ─── Shared pages (all authenticated roles) ────────────────
+import ProfilePlaceholder  from './pages/ProfilePlaceholder.jsx';
+import SettingsPlaceholder from './pages/SettingsPlaceholder.jsx';
+import HelpPlaceholder     from './pages/HelpPlaceholder.jsx';
+
+// ─── Public ────────────────────────────────────────────────
 import Login from './pages/Login.jsx';
 import Unauthorized from './pages/Unauthorized.jsx';
 
-import AdminDashboard        from './pages/admin/Dashboard.jsx';
-import TeacherDashboard      from './pages/teacher/Dashboard.jsx';
-import StudentDashboard      from './pages/student/Dashboard.jsx';
+// ─── Admin (nested layout) ─────────────────────────────────
+import AdminLayout     from './components/admin/AdminLayout';
+import AdminDashboard  from './pages/admin/Dashboard';
+import AdminAdmissions from './pages/admin/Admissions';
+import AdminUsers      from './pages/admin/Users';
+import AdminAcademics  from './pages/admin/Academics';
+import AdminFinance    from './pages/admin/Finance';
+import AdminLibrary    from './pages/admin/Library';
+import AdminHr         from './pages/admin/Hr';
+import AdminAnalytics  from './pages/admin/Analytics';
+import AdminBlockchain from './pages/admin/Blockchain';
+import AdminSettings   from './pages/admin/Settings';
+
+// ─── Teacher ───────────────────────────────────────────────
+import TeacherDashboard from './pages/teacher/Dashboard.jsx';
+
+// ─── Student ───────────────────────────────────────────────
+import StudentDashboard       from './pages/student/Dashboard.jsx';
+import StudentAttendance      from './pages/student/Attendance.jsx';
+import StudentResults         from './pages/student/Results.jsx';
+import StudentFees            from './pages/student/Fees.jsx';
+import StudentReceipt         from './pages/student/Receipt.jsx';
+import StudentCertificates    from './pages/student/Certificates.jsx';
+import StudentCertificateView from './pages/student/CertificateView.jsx';
+import StudentLibrary         from './pages/student/Library.jsx';
+import StudentProfile         from './pages/student/Profile.jsx';
+import StudentNotices         from './pages/student/Notices.jsx';
+import StudentNoticeView      from './pages/student/NoticeView.jsx';
+
+// ─── Other roles ───────────────────────────────────────────
 import ParentDashboard       from './pages/parent/Dashboard.jsx';
 import AccountantDashboard   from './pages/accountant/Dashboard.jsx';
 import LibrarianDashboard    from './pages/librarian/Dashboard.jsx';
@@ -122,6 +60,11 @@ export const ROLE_HOME = {
   'Lab Assistant': '/lab'
 };
 
+const ALL_ROLES = [
+  'Admin', 'Teacher', 'Student', 'Parent',
+  'Accountant', 'Librarian', 'HR', 'Lab Assistant'
+];
+
 function RootRedirect() {
   const { user, loading } = useAuth();
   if (loading) {
@@ -137,52 +80,96 @@ function RootRedirect() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <ErrorBoundary>
+      <AuthProvider>
         <Routes>
           {/* Public */}
           <Route path="/login" element={<Login />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
           <Route path="/verify" element={<PublicVerifyStub />} />
-
           <Route path="/" element={<RootRedirect />} />
 
-          {/* Admin */}
-          <Route path="/admin"
-            element={<ProtectedRoute allowedRoles={['Admin']}><AdminDashboard /></ProtectedRoute>} />
+          {/* ─── Shared pages (all authenticated roles) ─── */}
+          <Route path="/profile"
+            element={<ProtectedRoute allowedRoles={ALL_ROLES}><ProfilePlaceholder /></ProtectedRoute>} />
+          <Route path="/settings"
+            element={<ProtectedRoute allowedRoles={ALL_ROLES}><SettingsPlaceholder /></ProtectedRoute>} />
+          <Route path="/help"
+            element={<ProtectedRoute allowedRoles={ALL_ROLES}><HelpPlaceholder /></ProtectedRoute>} />
 
-          {/* Teacher */}
+          {/* ─── Admin — nested layout ─────────────────── */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={['Admin']}>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index             element={<AdminDashboard />} />
+            <Route path="admissions" element={<AdminAdmissions />} />
+            <Route path="users"      element={<AdminUsers />} />
+            <Route path="academics"  element={<AdminAcademics />} />
+            <Route path="finance"    element={<AdminFinance />} />
+            <Route path="library"    element={<AdminLibrary />} />
+            <Route path="hr"         element={<AdminHr />} />
+            <Route path="analytics"  element={<AdminAnalytics />} />
+            <Route path="blockchain" element={<AdminBlockchain />} />
+            <Route path="settings"   element={<AdminSettings />} />
+          </Route>
+
+          {/* ─── Teacher ───────────────────────────────── */}
           <Route path="/teacher"
             element={<ProtectedRoute allowedRoles={['Teacher']}><TeacherDashboard /></ProtectedRoute>} />
 
-          {/* Student */}
+          {/* ─── Student ───────────────────────────────── */}
           <Route path="/student"
             element={<ProtectedRoute allowedRoles={['Student']}><StudentDashboard /></ProtectedRoute>} />
+          <Route path="/student/attendance"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentAttendance /></ProtectedRoute>} />
+          <Route path="/student/results"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentResults /></ProtectedRoute>} />
+          <Route path="/student/fees"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentFees /></ProtectedRoute>} />
+          <Route path="/student/fees/receipts/:id"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentReceipt /></ProtectedRoute>} />
+          <Route path="/student/certificates"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentCertificates /></ProtectedRoute>} />
+          <Route path="/student/certificates/:uuid"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentCertificateView /></ProtectedRoute>} />
+          <Route path="/student/library"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentLibrary /></ProtectedRoute>} />
+          <Route path="/student/profile"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentProfile /></ProtectedRoute>} />
+          <Route path="/student/notices"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentNotices /></ProtectedRoute>} />
+          <Route path="/student/notices/:id"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentNoticeView /></ProtectedRoute>} />
 
-          {/* Parent */}
+          {/* ─── Parent ────────────────────────────────── */}
           <Route path="/parent"
             element={<ProtectedRoute allowedRoles={['Parent']}><ParentDashboard /></ProtectedRoute>} />
 
-          {/* Accountant */}
+          {/* ─── Accountant ────────────────────────────── */}
           <Route path="/accountant"
             element={<ProtectedRoute allowedRoles={['Accountant']}><AccountantDashboard /></ProtectedRoute>} />
 
-          {/* Librarian */}
+          {/* ─── Librarian ─────────────────────────────── */}
           <Route path="/librarian"
             element={<ProtectedRoute allowedRoles={['Librarian']}><LibrarianDashboard /></ProtectedRoute>} />
 
-          {/* HR */}
+          {/* ─── HR ────────────────────────────────────── */}
           <Route path="/hr"
             element={<ProtectedRoute allowedRoles={['HR']}><HRDashboard /></ProtectedRoute>} />
 
-          {/* Lab */}
+          {/* ─── Lab ───────────────────────────────────── */}
           <Route path="/lab"
             element={<ProtectedRoute allowedRoles={['Lab Assistant']}><LabAssistantDashboard /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

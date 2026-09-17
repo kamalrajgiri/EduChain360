@@ -91,3 +91,6 @@ CREATE TABLE IF NOT EXISTS teacher_classes (
     subject VARCHAR(100) NOT NULL,
     FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
+
+ALTER TABLE users
+  ADD COLUMN avatar_data MEDIUMTEXT NULL AFTER id_card_photo_url;

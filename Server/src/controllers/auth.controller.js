@@ -17,14 +17,6 @@ function signToken(user) {
   );
 }
 
-/**
- * POST /api/auth/login
- * Body: { identifier, password }
- *   - identifier = email OR school_id_number
- *
- * DEV MODE: plaintext password compare.
- * TODO (Phase 12+): swap to bcrypt.compare(password, user.password_hash)
- */
 export async function login(req, res, next) {
   try {
     const { identifier, password } = req.body;
@@ -35,7 +27,7 @@ export async function login(req, res, next) {
 
     const [rows] = await pool.query(
       `SELECT u.id, u.school_id_number, u.full_name, u.email,
-              u.password_hash, u.is_active,
+              u.password_hash, u.is_active, u.avatar_data,
               r.name AS role_name
          FROM users u
          JOIN roles r ON r.id = u.role_id
@@ -54,7 +46,6 @@ export async function login(req, res, next) {
       return res.status(403).json({ success: false, message: 'Account is deactivated' });
     }
 
-    // DEV ONLY — plaintext. Swap to bcrypt later.
     if (user.password_hash !== password) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
@@ -69,6 +60,7 @@ export async function login(req, res, next) {
         full_name: user.full_name,
         email: user.email,
         school_id_number: user.school_id_number,
+        avatar_data: user.avatar_data,
         role: user.role_name
       }
     });
@@ -77,16 +69,11 @@ export async function login(req, res, next) {
   }
 }
 
-/**
- * GET /api/auth/me
- * Requires: authenticate middleware
- * Returns the fresh user record from DB (in case profile changed since login).
- */
 export async function me(req, res, next) {
   try {
     const [rows] = await pool.query(
       `SELECT u.id, u.school_id_number, u.full_name, u.email,
-              u.phone_number, u.id_card_photo_url, u.created_at,
+              u.phone_number, u.id_card_photo_url, u.avatar_data, u.created_at,
               r.name AS role_name
          FROM users u
          JOIN roles r ON r.id = u.role_id
@@ -108,6 +95,7 @@ export async function me(req, res, next) {
         email: u.email,
         phone_number: u.phone_number,
         id_card_photo_url: u.id_card_photo_url,
+        avatar_data: u.avatar_data,
         school_id_number: u.school_id_number,
         role: u.role_name,
         created_at: u.created_at

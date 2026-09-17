@@ -1,17 +1,25 @@
 /**
  * Per-role navigation for the sidebar.
- * Only Teacher is fully defined here — other roles get expanded
- * when we build them in later phases.
+ * Only roles currently being built have a full menu — the rest keep a single
+ * Dashboard entry until their vertical ships.
  */
 export const NAV = {
-  Teacher: [
-    { code: 'DA', label: 'Dashboard',     path: '/teacher' },  ],
+  Student: [
+    { code: 'DA', label: 'Dashboard',    path: '/student' },
+    { code: 'PR', label: 'My Profile',   path: '/student/profile' },
+    { code: 'AT', label: 'Attendance',   path: '/student/attendance' },
+    { code: 'RE', label: 'Results',      path: '/student/results' },
+    { code: 'FE', label: 'Fees',         path: '/student/fees' },
+    { code: 'CE', label: 'Certificates', path: '/student/certificates' },
+    { code: 'LI', label: 'Library',      path: '/student/library' },
+    { code: 'NO', label: 'Notices',      path: '/student/notices' }
+  ],
 
   Admin: [
     { code: 'DA', label: 'Dashboard', path: '/admin' }
   ],
-  Student: [
-    { code: 'DA', label: 'Dashboard', path: '/student' }
+  Teacher: [
+    { code: 'DA', label: 'Dashboard', path: '/teacher' }
   ],
   Parent: [
     { code: 'DA', label: 'Dashboard', path: '/parent' }
