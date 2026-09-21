@@ -16,11 +16,14 @@ const DEV_USERS = [
 ];
 
 async function upsertUser(u, roleId) {
-  const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [u.email]);
+  const [existing] = await pool.query(
+    'SELECT id FROM users WHERE email = ? OR school_id_number = ? LIMIT 1',
+    [u.email, u.school_id_number]
+  );
   if (existing.length > 0) {
     await pool.query(
-      `UPDATE users SET full_name=?, school_id_number=?, password_hash=?, role_id=?, phone_number=? WHERE id=?`,
-      [u.full_name, u.school_id_number, u.password, roleId, u.phone, existing[0].id]
+      `UPDATE users SET full_name=?, school_id_number=?, email=?, password_hash=?, role_id=?, phone_number=? WHERE id=?`,
+      [u.full_name, u.school_id_number, u.email, u.password, roleId, u.phone, existing[0].id]
     );
     return { id: existing[0].id, action: 'updated' };
   }

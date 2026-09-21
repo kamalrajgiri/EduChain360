@@ -9,9 +9,11 @@
     "dev": "nodemon src/server.js",
     "test": "jest",
     "seed": "node src/utils/seed.js",
-    "seed:student": "node src/utils/seed-student.js"
+    "seed:student": "node src/utils/seed-student.js",
+   "seed:admin": "node src/utils/seedadmin.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

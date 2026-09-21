@@ -7,6 +7,95 @@ USE educhain360_db;
 ALTER TABLE fee_receipts         MODIFY COLUMN receipt_hash  VARCHAR(64) NULL;
 ALTER TABLE academic_credentials MODIFY COLUMN document_hash VARCHAR(64) NULL;
 
+CREATE TABLE IF NOT EXISTS classes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    academic_year VARCHAR(20) NOT NULL,
+    UNIQUE KEY uq_class_year (name, academic_year)
+);
+
+CREATE TABLE IF NOT EXISTS subjects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    code VARCHAR(30) NOT NULL UNIQUE,
+    full_marks INT NOT NULL DEFAULT 100
+);
+
+CREATE TABLE IF NOT EXISTS enrollments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    class_id INT NOT NULL,
+    roll_number INT NOT NULL,
+    UNIQUE KEY uq_enrollment (student_id, class_id),
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS class_subjects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    class_id INT NOT NULL,
+    subject_id INT NOT NULL,
+    teacher_id INT NULL,
+    UNIQUE KEY uq_class_subject (class_id, subject_id),
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS timetable_entries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    class_id INT NOT NULL,
+    subject_id INT NOT NULL,
+    teacher_id INT NULL,
+    day_of_week ENUM('MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT') NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    room VARCHAR(50),
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS attendance (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    class_id INT NOT NULL,
+    subject_id INT NOT NULL,
+    attendance_date DATE NOT NULL,
+    status ENUM('PRESENT', 'LATE', 'ABSENT') NOT NULL,
+    marked_by_teacher_id INT NULL,
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+    FOREIGN KEY (marked_by_teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS exams (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    class_id INT NOT NULL,
+    subject_id INT NOT NULL,
+    full_marks INT NOT NULL DEFAULT 100,
+    exam_date DATE NOT NULL,
+    created_by_teacher_id INT NULL,
+    UNIQUE KEY uq_exam (name, class_id, subject_id),
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by_teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS exam_marks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    exam_id INT NOT NULL,
+    student_id INT NOT NULL,
+    marks_obtained DECIMAL(5,2) NOT NULL,
+    grade VARCHAR(5) NOT NULL,
+    submitted_at DATETIME NOT NULL,
+    UNIQUE KEY uq_exam_student (exam_id, student_id),
+    FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- 1. Fee invoices (per student, per term, per fee head)
 CREATE TABLE IF NOT EXISTS fee_invoices (
     id INT AUTO_INCREMENT PRIMARY KEY,

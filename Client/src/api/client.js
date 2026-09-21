@@ -1,15 +1,28 @@
 import axios from 'axios';
 
 const TOKEN_KEY = 'educhain360_token';
+const LEGACY_TOKEN_KEY = 'token';
+export const AUTH_UNAUTHORIZED_EVENT = 'educhain360:unauthorized';
 
 export function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) return token;
+
+  const legacyToken = localStorage.getItem(LEGACY_TOKEN_KEY);
+  if (legacyToken) {
+    localStorage.setItem(TOKEN_KEY, legacyToken);
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+  }
+
+  return legacyToken;
 }
 export function setToken(token) {
   localStorage.setItem(TOKEN_KEY, token);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
 }
 export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
 }
 
 const client = axios.create({
@@ -32,7 +45,7 @@ client.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401) {
       clearToken();
-      // Let the app decide where to redirect (don't hard-reload here)
+      window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
     }
     return Promise.reject(err);
   }

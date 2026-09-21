@@ -2,6 +2,9 @@ import { Router } from 'express';
 import authRoutes from './auth.routes.js';
 import studentRoutes from './student.routes.js';
 import notificationsRoutes from './notifications.routes.js';
+import adminRoutes from './admin.routes.js';
+import { authenticate } from '../middleware/auth.js';
+import { requireRole } from '../middleware/role.js';
 const router = Router();
 
 router.get('/health', (req, res) => {
@@ -11,6 +14,6 @@ router.get('/health', (req, res) => {
 router.use('/auth', authRoutes);
 router.use('/student', studentRoutes);
 router.use('/notifications', notificationsRoutes);
-// Future: /admin, /students, /teachers, /fees, /library, /hr, /lab, /public, /chatbot, /blockchain
+router.use('/admin', authenticate, requireRole('Admin'), adminRoutes);
 
 export default router;
