@@ -5,10 +5,14 @@ import { getNotifications } from '../api/notifications.js';
 const READ_KEY = 'educhain360_read_notices';
 
 const NOTICES_BASE_BY_ROLE = {
-  Student: '/student/notices'
+  Student:    '/student/notices',
+  Accountant: '/accountant/notices',
+  Teacher:    '/teacher/notices'
 };
 const ALL_LINK_BY_ROLE = {
-  Student: '/student/notices'
+  Student:    '/student/notices',
+  Accountant: '/accountant/notices',
+  Teacher:    '/teacher/notices'
 };
 
 function timeAgo(iso) {
@@ -144,6 +148,16 @@ export default function NotificationBell({ role }) {
     const base = NOTICES_BASE_BY_ROLE[role];
     if (base) navigate(`${base}/${n.id}`);
   }
+  // Cross-tab sync — reload read state when another tab changes localStorage
+  useEffect(() => {
+    function onStorage(e) {
+      if (e.key === READ_KEY) {
+        setReadIds(loadRead());
+      }
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   return (
     <div className="relative">

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { search } from '../api/student.js';
+import { search } from '../api/search.js';
 
 export default function SearchBox({ role }) {
   const navigate = useNavigate();
@@ -10,8 +10,8 @@ export default function SearchBox({ role }) {
   const [results, setResults] = useState(null);
   const wrapRef = useRef(null);
 
-  // Only Student has the endpoint for now
-  const enabled = role === 'Student';
+  // Hide on roles we haven't wired yet (only Student + Accountant for now)
+  const enabled = role === 'Student' || role === 'Accountant' || role === 'Teacher' || role === 'Admin';
 
   // Debounced search
   useEffect(() => {
@@ -28,7 +28,7 @@ export default function SearchBox({ role }) {
         const res = await search(trimmed);
         setResults(res);
       } catch {
-        setResults({ books: [], notices: [], certificates: [], subjects: [] });
+        setResults({ query: trimmed, groups: [], total: 0 });
       } finally {
         setLoading(false);
       }
@@ -57,10 +57,8 @@ export default function SearchBox({ role }) {
 
   if (!enabled) return null;
 
-  const totalResults = results
-    ? (results.books.length + results.notices.length +
-       results.certificates.length + results.subjects.length)
-    : 0;
+  const groups = results?.groups || [];
+  const total = results?.total || 0;
 
   function go(path) {
     setOpen(false);
@@ -75,7 +73,7 @@ export default function SearchBox({ role }) {
         value={q}
         onChange={(e) => { setQ(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
-        placeholder="Search books, notices, certificates..."
+        placeholder="Search..."
         className="w-52 lg:w-64 xl:w-80 rounded-full border border-border bg-background
                    px-4 py-2 text-xs text-text-main placeholder:text-text-muted/60
                    focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15
@@ -91,74 +89,42 @@ export default function SearchBox({ role }) {
               <div className="p-4 text-center text-xs text-text-muted">Searching…</div>
             )}
 
-            {!loading && results && totalResults === 0 && (
+            {!loading && results && total === 0 && (
               <div className="p-6 text-center">
                 <p className="text-xs font-semibold text-text-main">No matches for "{q}"</p>
                 <p className="text-[11px] text-text-muted mt-0.5">Try a different word.</p>
               </div>
             )}
 
-            {!loading && results && totalResults > 0 && (
+            {!loading && groups.length > 0 && (
               <>
-                {results.books.length > 0 && (
-                  <Group label="Books">
-                    {results.books.map((b) => (
-                      <ResultRow key={b.id} onClick={() => go('/student/library')}>
-                        <span className="text-sm">📖</span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium text-text-main truncate">{b.title}</p>
-                          <p className="text-[10px] text-text-muted truncate">
-                            {b.author || '—'} · {b.available_copies} available
-                          </p>
-                        </div>
-                      </ResultRow>
-                    ))}
-                  </Group>
-                )}
-
-                {results.notices.length > 0 && (
-                  <Group label="Notices">
-                    {results.notices.map((n) => (
-                      <ResultRow key={n.id} onClick={() => go(`/student/notices/${n.id}`)}>
-                        <span className="text-sm">📣</span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium text-text-main truncate">{n.title}</p>
-                          <p className="text-[10px] text-text-muted">{n.audience}</p>
-                        </div>
-                      </ResultRow>
-                    ))}
-                  </Group>
-                )}
-
-                {results.certificates.length > 0 && (
-                  <Group label="Certificates">
-                    {results.certificates.map((c) => (
-                      <ResultRow key={c.id} onClick={() => go(`/student/certificates/${c.credential_uuid}`)}>
-                        <span className="text-sm">🎓</span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium text-text-main truncate">{c.title}</p>
-                          <p className="text-[10px] text-text-muted">
-                            Issued {new Date(c.issue_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </p>
-                        </div>
-                      </ResultRow>
-                    ))}
-                  </Group>
-                )}
-
-                {results.subjects.length > 0 && (
-                  <Group label="Subjects">
-                    {results.subjects.map((s) => (
-                      <ResultRow key={s.id} onClick={() => go('/student/attendance')}>
-                        <span className="text-sm">📚</span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium text-text-main">{s.name}</p>
-                          <p className="text-[10px] text-text-muted font-mono">{s.code}</p>
-                        </div>
-                      </ResultRow>
-                    ))}
-                  </Group>
-                )}
+                {groups.map((g) => (
+                  <div key={g.id}>
+                    <div className="px-4 py-1.5 bg-background/70 border-y border-border">
+                      <p className="text-[10px] uppercase tracking-wider font-semibold text-text-muted">
+                        {g.label}
+                      </p>
+                    </div>
+                    <ul className="divide-y divide-border">
+                      {g.items.map((it) => (
+                        <li key={`${g.id}-${it.id}`}>
+                          <button
+                            onClick={() => go(it.path)}
+                            className="w-full text-left px-4 py-2.5 hover:bg-primary-subtle/40 transition-colors flex items-center gap-3"
+                          >
+                            <span className="text-sm shrink-0">{g.icon}</span>
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-text-main truncate">{it.title}</p>
+                              {it.subtitle && (
+                                <p className="text-[10px] text-text-muted truncate">{it.subtitle}</p>
+                              )}
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </>
             )}
           </div>
@@ -171,29 +137,5 @@ export default function SearchBox({ role }) {
         </div>
       )}
     </div>
-  );
-}
-
-function Group({ label, children }) {
-  return (
-    <div>
-      <div className="px-4 py-1.5 bg-background/70 border-y border-border">
-        <p className="text-[10px] uppercase tracking-wider font-semibold text-text-muted">{label}</p>
-      </div>
-      <ul className="divide-y divide-border">{children}</ul>
-    </div>
-  );
-}
-
-function ResultRow({ onClick, children }) {
-  return (
-    <li>
-      <button
-        onClick={onClick}
-        className="w-full text-left px-4 py-2.5 hover:bg-primary-subtle/40 transition-colors flex items-center gap-3"
-      >
-        {children}
-      </button>
-    </li>
   );
 }

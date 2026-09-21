@@ -107,3 +107,119 @@ export async function me(req, res, next) {
     next(err);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   SHARED PROFILE — any authenticated user can edit their own
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function updateProfile(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const { phone_number, full_name } = req.body;
+
+    const sets = [];
+    const values = [];
+
+    if (typeof phone_number === 'string') {
+      const cleaned = phone_number.trim();
+      if (cleaned.length > 0 && !/^[+0-9\-\s]{7,20}$/.test(cleaned)) {
+        return res.status(400).json({ success: false, message: 'Invalid phone number format' });
+      }
+      sets.push('phone_number = ?');
+      values.push(cleaned || null);
+    }
+
+    if (typeof full_name === 'string' && full_name.trim().length >= 2) {
+      sets.push('full_name = ?');
+      values.push(full_name.trim());
+    }
+
+    if (sets.length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid fields to update' });
+    }
+
+    values.push(userId);
+
+    await pool.query(
+      `UPDATE users SET ${sets.join(', ')} WHERE id = ?`,
+      values
+    );
+
+    const [rows] = await pool.query(
+      `SELECT u.id, u.full_name, u.email, u.phone_number,
+              u.school_id_number, u.avatar_data, r.name AS role
+         FROM users u
+         JOIN roles r ON r.id = u.role_id
+        WHERE u.id = ?
+        LIMIT 1`,
+      [userId]
+    );
+
+    res.json({ success: true, message: 'Profile updated', data: rows[0] });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function changePassword(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current and new password required' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT password_hash FROM users WHERE id = ? LIMIT 1',
+      [userId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // DEV ONLY — plaintext. Swap to bcrypt.compare later.
+    if (rows[0].password_hash !== currentPassword) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    await pool.query(
+      'UPDATE users SET password_hash = ? WHERE id = ?',
+      [newPassword, userId]
+    );
+
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateAvatar(req, res, next) {
+  try {
+    const { dataUrl } = req.body;
+
+    if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
+      return res.status(400).json({ success: false, message: 'Invalid image data' });
+    }
+    if (dataUrl.length > 2_000_000) {
+      return res.status(413).json({ success: false, message: 'Image too large (max ~1.5 MB)' });
+    }
+
+    await pool.query('UPDATE users SET avatar_data = ? WHERE id = ?', [dataUrl, req.user.id]);
+    res.json({ success: true, message: 'Photo updated' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function clearAvatar(req, res, next) {
+  try {
+    await pool.query('UPDATE users SET avatar_data = NULL WHERE id = ?', [req.user.id]);
+    res.json({ success: true, message: 'Photo removed' });
+  } catch (err) {
+    next(err);
+  }
+}

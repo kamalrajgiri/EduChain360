@@ -106,11 +106,15 @@ export default function StudentReceipt() {
                     <p className="text-sm text-text-main mt-0.5">{fmtDateTime(data.created_at)}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-[11px] uppercase tracking-wider text-text-muted font-semibold">Student</p>
-                    <p className="text-sm font-semibold text-text-main mt-0.5">
-                      {data.student_name} · {data.class_name || '—'}
-                    </p>
-                  </div>
+  <p className="text-[11px] uppercase tracking-wider text-text-muted font-semibold">Student</p>
+  <p className="text-sm font-semibold text-text-main mt-0.5">
+    {data.student_name} · {data.class_name || '—'}
+  </p>
+</div>
+<div className="col-span-2">
+  <p className="text-[11px] uppercase tracking-wider text-text-muted font-semibold">Payment method</p>
+  <p className="text-sm text-text-main mt-0.5">{data.payment_method || '—'}</p>
+</div>
                 </div>
 
                 <div className="border border-border rounded-xl overflow-hidden print-keep">

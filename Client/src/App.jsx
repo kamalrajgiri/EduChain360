@@ -9,67 +9,60 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Spinner from "./components/Spinner.jsx";
 
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import AdminClasses from "./pages/admin/Classes.jsx";
+import AdminSubjects from "./pages/admin/Subjects.jsx";
+import AdminEnrollments from "./pages/admin/Enrollments.jsx";
+import AdminTeacherAssignments from "./pages/admin/TeacherAssignments.jsx";
+import AdminNotifications from "./pages/admin/Notifications.jsx";
+import AdminProfile from "./pages/admin/Profile.jsx";
+import TeacherMyClasses from "./pages/teacher/MyClasses.jsx";
+import TeacherClassDetail from "./pages/teacher/ClassDetail.jsx";
+import TeacherAttendance from "./pages/teacher/Attendance.jsx";
+import TeacherExamsMarks from "./pages/teacher/ExamsMarks.jsx";
+import TeacherTimetable from "./pages/teacher/Timetable.jsx";
+import TeacherNotices from "./pages/teacher/Notices.jsx";
+import TeacherNoticeView from "./pages/teacher/NoticeView.jsx";
+import TeacherProfile from "./pages/teacher/Profile.jsx";
+import AccountantTransactions from "./pages/accountant/Transactions.jsx";
+import AccountantFeeStructure from "./pages/accountant/FeeStructure.jsx";
+import AccountantReports from "./pages/accountant/Reports.jsx";
+import AccountantReceipt from "./pages/accountant/Receipt.jsx";
+import AccountantInvoices from "./pages/accountant/Invoices.jsx";
+import AccountantPayroll from "./pages/accountant/Payroll.jsx";
+import AccountantPayrollRun from "./pages/accountant/PayrollRun.jsx";
+import AccountantSalarySlip from "./pages/accountant/SalarySlip.jsx";
+import AccountantStudentDetail from "./pages/accountant/StudentDetail.jsx";
+import AccountantStatement from "./pages/accountant/Statement.jsx";
+import AccountantDaybook from "./pages/accountant/Daybook.jsx";
+import AccountantProfile from "./pages/accountant/Profile.jsx";
+import AccountantNotices from "./pages/accountant/Notices.jsx";
+import AccountantNoticeView from "./pages/accountant/NoticeView.jsx";
+import { FEATURES } from './config/features.js';
 
-import ProfilePlaceholder from "./pages/ProfilePlaceholder.jsx";
-
-import SettingsPlaceholder from "./pages/SettingsPlaceholder.jsx";
-
-import HelpPlaceholder from "./pages/HelpPlaceholder.jsx";
+// ─── Shared pages (all authenticated roles) ────────────────
+import ProfilePlaceholder  from './pages/ProfilePlaceholder.jsx';
+import SettingsPlaceholder from './pages/SettingsPlaceholder.jsx';
+import HelpPlaceholder     from './pages/HelpPlaceholder.jsx';
 
 import Login from "./pages/Login.jsx";
 
 import Unauthorized from "./pages/Unauthorized.jsx";
 
-/* =========================================================
-   ADMIN COMPONENTS
-========================================================= */
+// ─── Admin (nested layout) ─────────────────────────────────
+import AdminLayout     from './components/admin/AdminLayout';
+import AdminDashboard  from './pages/admin/Dashboard';
+import AdminAdmissions from './pages/admin/Admissions';
+import AdminUsers      from './pages/admin/Users';
+import AdminAcademics  from './pages/admin/Academics';
+import AdminFinance    from './pages/admin/Finance';
+import AdminLibrary    from './pages/admin/Library';
+import AdminHr         from './pages/admin/Hr';
+import AdminAnalytics  from './pages/admin/Analytics';
+import AdminBlockchain from './pages/admin/Blockchain';
+import AdminSettings   from './pages/admin/Settings';
 
-import AdminLayout from "./components/admin/AdminLayout.jsx";
-
-/* =========================================================
-   ADMIN PAGES
-========================================================= */
-
-import AdminDashboard from "./pages/admin/Dashboard.jsx";
-
-import AdminAdmissions from "./pages/admin/Admissions.jsx";
-
-import AdminUsers from "./pages/admin/Users.jsx";
-
-import AdminAcademics from "./pages/admin/Academics.jsx";
-
-import AdminClasses from "./pages/admin/Classes.jsx";
-
-import AdminSubjects from "./pages/admin/Subjects.jsx";
-
-import AdminEnrollments from "./pages/admin/Enrollments.jsx";
-
-import AdminTeacherAssignments from "./pages/admin/TeacherAssignments.jsx";
-
-import AdminFinance from "./pages/admin/Finance.jsx";
-
-import AdminLibrary from "./pages/admin/Library.jsx";
-
-import AdminHr from "./pages/admin/Hr.jsx";
-
-import AdminAnalytics from "./pages/admin/Analytics.jsx";
-
-import AdminBlockchain from "./pages/admin/Blockchain.jsx";
-
-import AdminNotifications from "./pages/admin/Notifications.jsx";
-
-import AdminSettings from "./pages/admin/Settings.jsx";
-
-import AdminProfile from "./pages/admin/Profile.jsx";
-
-/* =========================================================
-   OTHER ROLE PAGES
-
-   Keep these routes because other team members are working
-   on these modules.
-========================================================= */
-
-import TeacherDashboard from "./pages/teacher/Dashboard.jsx";
+// ─── Teacher ───────────────────────────────────────────────
+import TeacherDashboard from './pages/teacher/Dashboard.jsx';
 
 import StudentDashboard from "./pages/student/Dashboard.jsx";
 
@@ -93,19 +86,12 @@ import StudentNotices from "./pages/student/Notices.jsx";
 
 import StudentNoticeView from "./pages/student/NoticeView.jsx";
 
-import ParentDashboard from "./pages/parent/Dashboard.jsx";
-
-import AccountantDashboard from "./pages/accountant/Dashboard.jsx";
-
-import LibrarianDashboard from "./pages/librarian/Dashboard.jsx";
-
-import HRDashboard from "./pages/hr/Dashboard.jsx";
-
-import LabAssistantDashboard from "./pages/lab/Dashboard.jsx";
-
-/* =========================================================
-   ROLE HOME
-========================================================= */
+// ─── Other roles ───────────────────────────────────────────
+import ParentDashboard       from './pages/parent/Dashboard.jsx';
+import AccountantDashboard   from './pages/accountant/Dashboard.jsx';
+import LibrarianDashboard    from './pages/librarian/Dashboard.jsx';
+import HRDashboard           from './pages/hr/Dashboard.jsx';
+import LabAssistantDashboard from './pages/lab/Dashboard.jsx';
 
 export const ROLE_HOME = {
   Admin: "/admin",
@@ -128,10 +114,6 @@ const ALL_ROLES = [
   "HR",
   "Lab Assistant",
 ];
-
-/* =========================================================
-   ROOT REDIRECT
-========================================================= */
 
 function RootRedirect() {
   const { user, loading } = useAuth();
@@ -193,36 +175,13 @@ export default function App() {
             element={<RootRedirect />}
           />
 
-          {/* =================================================
-              GLOBAL ROLE-SAFE PAGES
-          ================================================= */}
-
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute allowedRoles={ALL_ROLES}>
-                <ProfilePlaceholder />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute allowedRoles={ALL_ROLES}>
-                <SettingsPlaceholder />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/help"
-            element={
-              <ProtectedRoute allowedRoles={ALL_ROLES}>
-                <HelpPlaceholder />
-              </ProtectedRoute>
-            }
-          />
+          {/* ─── Shared pages (all authenticated roles) ─── */}
+          <Route path="/profile"
+            element={<ProtectedRoute allowedRoles={ALL_ROLES}><ProfilePlaceholder /></ProtectedRoute>} />
+          <Route path="/settings"
+            element={<ProtectedRoute allowedRoles={ALL_ROLES}><SettingsPlaceholder /></ProtectedRoute>} />
+          <Route path="/help"
+            element={<ProtectedRoute allowedRoles={ALL_ROLES}><HelpPlaceholder /></ProtectedRoute>} />
 
           {/* =================================================
               ADMIN PORTAL
@@ -385,199 +344,78 @@ export default function App() {
 
           </Route>
 
-          {/* =================================================
-              TEACHER
-          ================================================= */}
-
+          {/* ─── Teacher ───────────────────────────────── */}
           <Route
             path="/teacher"
-            element={
-              <ProtectedRoute allowedRoles={["Teacher"]}>
-                <TeacherDashboard />
-              </ProtectedRoute>
-            }
+            element={<ProtectedRoute allowedRoles={["Teacher"]}><TeacherDashboard /></ProtectedRoute>}
           />
+          <Route path="/teacher/classes" element={<ProtectedRoute allowedRoles={["Teacher"]}><TeacherMyClasses /></ProtectedRoute>} />
+          <Route path="/teacher/classes/:id" element={<ProtectedRoute allowedRoles={["Teacher"]}><TeacherClassDetail /></ProtectedRoute>} />
+          <Route path="/teacher/attendance" element={<ProtectedRoute allowedRoles={["Teacher"]}><TeacherAttendance /></ProtectedRoute>} />
+          <Route path="/teacher/exams" element={<ProtectedRoute allowedRoles={["Teacher"]}><TeacherExamsMarks /></ProtectedRoute>} />
+          <Route path="/teacher/timetable" element={<ProtectedRoute allowedRoles={["Teacher"]}><TeacherTimetable /></ProtectedRoute>} />
+          <Route path="/teacher/notices" element={<ProtectedRoute allowedRoles={["Teacher"]}><TeacherNotices /></ProtectedRoute>} />
+          <Route path="/teacher/notices/:id" element={<ProtectedRoute allowedRoles={["Teacher"]}><TeacherNoticeView /></ProtectedRoute>} />
+          <Route path="/teacher/profile" element={<ProtectedRoute allowedRoles={["Teacher"]}><TeacherProfile /></ProtectedRoute>} />
 
-          {/* =================================================
-              STUDENT
-          ================================================= */}
+          {/* ─── Student ───────────────────────────────── */}
+          <Route path="/student"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentDashboard /></ProtectedRoute>} />
+          <Route path="/student/attendance"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentAttendance /></ProtectedRoute>} />
+          <Route path="/student/results"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentResults /></ProtectedRoute>} />
+          <Route path="/student/fees"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentFees /></ProtectedRoute>} />
+          <Route path="/student/fees/receipts/:id"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentReceipt /></ProtectedRoute>} />
+          <Route path="/student/certificates"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentCertificates /></ProtectedRoute>} />
+          <Route path="/student/certificates/:uuid"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentCertificateView /></ProtectedRoute>} />
+          <Route path="/student/library"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentLibrary /></ProtectedRoute>} />
+          <Route path="/student/profile"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentProfile /></ProtectedRoute>} />
+          <Route path="/student/notices"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentNotices /></ProtectedRoute>} />
+          <Route path="/student/notices/:id"
+            element={<ProtectedRoute allowedRoles={['Student']}><StudentNoticeView /></ProtectedRoute>} />
 
-          <Route
-            path="/student"
-            element={
-              <ProtectedRoute allowedRoles={["Student"]}>
-                <StudentDashboard />
-              </ProtectedRoute>
-            }
-          />
+          {/* ─── Parent ────────────────────────────────── */}
+          <Route path="/parent"
+            element={<ProtectedRoute allowedRoles={['Parent']}><ParentDashboard /></ProtectedRoute>} />
 
-          <Route
-            path="/student/attendance"
-            element={
-              <ProtectedRoute allowedRoles={["Student"]}>
-                <StudentAttendance />
-              </ProtectedRoute>
-            }
-          />
+          {/* ─── Accountant ────────────────────────────── */}
+          <Route path="/accountant" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantDashboard /></ProtectedRoute>} />
+          <Route path="/accountant/transactions" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantTransactions /></ProtectedRoute>} />
+          <Route path="/accountant/fee-structure" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantFeeStructure /></ProtectedRoute>} />
+          <Route path="/accountant/reports" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantReports /></ProtectedRoute>} />
+          <Route path="/accountant/receipts/:id" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantReceipt /></ProtectedRoute>} />
+          <Route path="/accountant/invoices" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantInvoices /></ProtectedRoute>} />
+          <Route path="/accountant/payroll" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantPayroll /></ProtectedRoute>} />
+          <Route path="/accountant/payroll/run" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantPayrollRun /></ProtectedRoute>} />
+          <Route path="/accountant/payroll/:id" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantSalarySlip /></ProtectedRoute>} />
+          <Route path="/accountant/students/:id" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantStudentDetail /></ProtectedRoute>} />
+          <Route path="/accountant/statements/:id" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantStatement /></ProtectedRoute>} />
+          <Route path="/accountant/daybook" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantDaybook /></ProtectedRoute>} />
+          <Route path="/accountant/profile" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantProfile /></ProtectedRoute>} />
+          <Route path="/accountant/notices" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantNotices /></ProtectedRoute>} />
+          <Route path="/accountant/notices/:id" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantNoticeView /></ProtectedRoute>} />
 
-          <Route
-            path="/student/results"
-            element={
-              <ProtectedRoute allowedRoles={["Student"]}>
-                <StudentResults />
-              </ProtectedRoute>
-            }
-          />
+          {/* ─── Librarian ─────────────────────────────── */}
+          <Route path="/librarian"
+            element={<ProtectedRoute allowedRoles={['Librarian']}><LibrarianDashboard /></ProtectedRoute>} />
 
-          <Route
-            path="/student/fees"
-            element={
-              <ProtectedRoute allowedRoles={["Student"]}>
-                <StudentFees />
-              </ProtectedRoute>
-            }
-          />
+          {/* ─── HR ────────────────────────────────────── */}
+          <Route path="/hr"
+            element={<ProtectedRoute allowedRoles={['HR']}><HRDashboard /></ProtectedRoute>} />
 
-          <Route
-            path="/student/fees/receipts/:id"
-            element={
-              <ProtectedRoute allowedRoles={["Student"]}>
-                <StudentReceipt />
-              </ProtectedRoute>
-            }
-          />
+          {/* ─── Lab ───────────────────────────────────── */}
+          <Route path="/lab"
+            element={<ProtectedRoute allowedRoles={['Lab Assistant']}><LabAssistantDashboard /></ProtectedRoute>} />
 
-          <Route
-            path="/student/certificates"
-            element={
-              <ProtectedRoute allowedRoles={["Student"]}>
-                <StudentCertificates />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/student/certificates/:uuid"
-            element={
-              <ProtectedRoute allowedRoles={["Student"]}>
-                <StudentCertificateView />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/student/library"
-            element={
-              <ProtectedRoute allowedRoles={["Student"]}>
-                <StudentLibrary />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/student/profile"
-            element={
-              <ProtectedRoute allowedRoles={["Student"]}>
-                <StudentProfile />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/student/notices"
-            element={
-              <ProtectedRoute allowedRoles={["Student"]}>
-                <StudentNotices />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/student/notices/:id"
-            element={
-              <ProtectedRoute allowedRoles={["Student"]}>
-                <StudentNoticeView />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* =================================================
-              PARENT
-          ================================================= */}
-
-          <Route
-            path="/parent"
-            element={
-              <ProtectedRoute allowedRoles={["Parent"]}>
-                <ParentDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* =================================================
-              ACCOUNTANT
-          ================================================= */}
-
-          <Route
-            path="/accountant"
-            element={
-              <ProtectedRoute allowedRoles={["Accountant"]}>
-                <AccountantDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* =================================================
-              LIBRARIAN
-          ================================================= */}
-
-          <Route
-            path="/librarian"
-            element={
-              <ProtectedRoute allowedRoles={["Librarian"]}>
-                <LibrarianDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* =================================================
-              HR
-          ================================================= */}
-
-          <Route
-            path="/hr"
-            element={
-              <ProtectedRoute allowedRoles={["HR"]}>
-                <HRDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* =================================================
-              LAB ASSISTANT
-
-              Kept because another team member is working
-              on the Lab Assistant module.
-          ================================================= */}
-
-          <Route
-            path="/lab"
-            element={
-              <ProtectedRoute allowedRoles={["Lab Assistant"]}>
-                <LabAssistantDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* =================================================
-              FALLBACK
-          ================================================= */}
-
-          <Route
-            path="*"
-            element={<Navigate to="/" replace />}
-          />
-
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </ErrorBoundary>
