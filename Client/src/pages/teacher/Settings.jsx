@@ -1,3 +1,4 @@
+// Client/src/pages/teacher/Settings.jsx
 import { useState } from "react";
 import { Moon, Sun, Trash2, AlertTriangle } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
@@ -14,6 +15,7 @@ const APP_STORAGE_KEYS = [
 export default function Settings() {
   const { darkMode, setDarkMode } = useTheme();
   const [confirming, setConfirming] = useState(false);
+  
   const [cleared, setCleared] = useState(false);
 
   function handleDeleteAll() {

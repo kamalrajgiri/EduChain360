@@ -25,8 +25,8 @@ export async function getReceipt(receiptId) {
   return data.data;
 }
 
-export async function payFees(method) {
-  const { data } = await client.post('/student/fees/pay', { method });
+export async function payFees(amount, method) {
+  const { data } = await client.post('/student/fees/pay', { amount, method });
   return data;
 }
 
@@ -45,44 +45,13 @@ export async function getLibrary(query = '') {
   const { data } = await client.get(`/student/library${qs}`);
   return data.data;
 }
-
-export async function getNotices() {
-  const { data } = await client.get('/student/notices');
+export async function getAttendanceCalendar(month) {
+  const qs = month ? `?month=${encodeURIComponent(month)}` : '';
+  const { data } = await client.get(`/student/attendance/calendar${qs}`);
   return data.data;
 }
 
-export async function getNotice(noticeId) {
-  const { data } = await client.get(`/student/notices/${noticeId}`);
-  return data.data;
-}
-
-export async function updateProfile({ phone_number, full_name }) {
-  const body = {};
-  if (phone_number !== undefined) body.phone_number = phone_number;
-  if (full_name   !== undefined) body.full_name   = full_name;
-  const { data } = await client.patch('/student/profile', body);
-  return data;
-}
-
-export async function changePassword({ currentPassword, newPassword }) {
-  const { data } = await client.post('/student/change-password', {
-    currentPassword,
-    newPassword
-  });
-  return data;
-}
-
-export async function uploadPhoto(dataUrl) {
-  const { data } = await client.post('/student/profile/photo', { dataUrl });
-  return data;
-}
-
-export async function removePhoto() {
-  const { data } = await client.delete('/student/profile/photo');
-  return data;
-}
-
-export async function search(q) {
-  const { data } = await client.get(`/student/search?q=${encodeURIComponent(q)}`);
+export async function getAllExams() {
+  const { data } = await client.get('/student/exams');
   return data.data;
 }

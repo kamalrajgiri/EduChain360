@@ -1,16 +1,14 @@
 # EduChain360 — Developer Setup Guide
 
-**Read this fully before you clone.** This document walks you from a clean
-machine to a fully working local development environment.
+**Read this fully before you clone.** This walks you from a clean machine to a fully working local development environment.
 
-If you get stuck, check the [Troubleshooting](#troubleshooting) section at the
-bottom before asking the team.
+If you get stuck, check [Troubleshooting](#troubleshooting) at the bottom.
 
 ---
 
 ## 1. Prerequisites
 
-Install these on your machine before anything else.
+Install these before anything else.
 
 | Tool | Version | How to check | Install |
 |------|---------|--------------|---------|
@@ -20,10 +18,9 @@ Install these on your machine before anything else.
 | **Git** | any recent | `git --version` | https://git-scm.com |
 | **VS Code** *(recommended)* | any | — | https://code.visualstudio.com |
 
-**Windows users:** use **Git Bash** (comes with Git for Windows) or **MINGW64**.
-Plain `cmd.exe` will break some commands.
+**Windows users:** use **Git Bash** (comes with Git for Windows) or **MINGW64**. Plain `cmd.exe` breaks some commands.
 
-**Verify all four are installed** before proceeding:
+Verify all four are installed:
 
 ```bash
 node --version    # → v20.x.x or similar
@@ -32,7 +29,7 @@ mysql --version   # → mysql  Ver 8.x.x
 git --version     # → git version 2.x.x
 ```
 
-If any of these error out, fix it before continuing.
+If any fail, fix them before continuing.
 
 ---
 
@@ -43,69 +40,69 @@ git clone <repo-url> EduChain360
 cd EduChain360
 ```
 
-The repo has this top-level structure:
+Top-level structure:
 
 ```
 EduChain360/
 ├── Client/          # React + Vite frontend
 ├── Server/          # Node.js + Express backend
-├── SETUP.md         # ← you are here
+├── SETUP.md         # ← this file
 └── README.md
 ```
 
 ---
 
-## 3. Environment File (`.env`)
+## 3. Environment Configuration
 
-The backend reads configuration from `Server/.env`. **This file is NOT in git**
-for security. You must create it.
+The backend reads from `Server/.env`. **This file is NOT in git.** You must create it.
 
 ```bash
 cd Server
 cp .env.example .env
 ```
 
-If `.env.example` doesn't exist, create `Server/.env` manually with:
+If `.env.example` doesn't exist, create `Server/.env` manually:
 
 ```env
-# Server
+# ─── Server ───────────────────────────────────────────────────
 PORT=5000
 NODE_ENV=development
 
-# Database
+# ─── Database ─────────────────────────────────────────────────
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=your_mysql_password_here
 DB_NAME=educhain360_db
 
-# Auth
-JWT_SECRET=dev_secret_change_me_in_production_please_use_a_long_random_string
+# ─── Auth ─────────────────────────────────────────────────────
+JWT_SECRET=change_this_to_a_long_random_string
 JWT_EXPIRES_IN=7d
 
-# Client (for CORS)
+# ─── Client (CORS) ────────────────────────────────────────────
 CLIENT_ORIGIN=http://localhost:5173
+
+# ─── Bootstrap admin account (created by `npm run bootstrap`) ─
+ADMIN_EMAIL=admin@fwu.edu.np
+ADMIN_PASSWORD=admin123
+ADMIN_NAME=System Administrator
+ADMIN_SCHOOL_ID=ADM-001
 ```
 
-**Change `DB_PASSWORD`** to your actual MySQL root password (or a dedicated
-MySQL user's password — see §4.1 for creating one).
-
-**Change `JWT_SECRET`** to anything long and random. It only needs to be the
-same across your own dev sessions, not shared with teammates.
+**Change at least:**
+- `DB_PASSWORD` → your real MySQL password
+- `JWT_SECRET` → any long random string
+- `ADMIN_PASSWORD` → keep `admin123` for local dev; change for anything shared
 
 ---
 
 ## 4. Database Setup
 
-### 4.1 — (Optional but recommended) create a dedicated MySQL user
-
-Open MySQL as root:
+### 4.1 (Optional) Create a dedicated MySQL user
 
 ```bash
 mysql -u root -p
 ```
-
-Then run:
 
 ```sql
 CREATE USER 'edu'@'localhost' IDENTIFIED BY 'edu_password';
@@ -114,52 +111,30 @@ FLUSH PRIVILEGES;
 EXIT;
 ```
 
-If you do this, update `Server/.env`:
-```
-DB_USER=edu
-DB_PASSWORD=edu_password
-```
+If you do this, set `DB_USER=edu` and `DB_PASSWORD=edu_password` in `.env`. Otherwise skip.
 
-Otherwise just use `DB_USER=root` and your root password.
+### 4.2 Create the schema
 
-### 4.2 — Create the database + schema
-
-From the **repo root** (not from `Server/`):
+From the **repo root**:
 
 ```bash
 mysql -u root -p < Server/src/config/schema.sql
 ```
 
-This creates the `educhain360_db` database, all base tables (users, roles,
-teachers, classes, subjects, enrollments, class_subjects, attendance, exams,
-exam_marks, timetable_entries, notices, academic_credentials, fee_receipts,
-blockchain_ledger), and seeds the 8 roles.
+This is the **only schema file**. It creates:
+- The `educhain360_db` database
+- **23 tables** — roles, users, teachers, classes, subjects, enrollments, class_subjects, attendance, exams, exam_marks, timetable_entries, notices, academic_credentials, fee_receipts, fee_invoices, fee_structure, fee_adjustments, books, book_issues, staff_salaries, payroll_runs, payroll_items, blockchain_ledger
+- The **8 roles** (Admin, Teacher, Student, Parent, Accountant, Librarian, HR, Lab Assistant)
 
-### 4.3 — Student-phase tables
+Safe to re-run — every statement uses `IF NOT EXISTS` / `INSERT IGNORE`.
 
-```bash
-mysql -u root -p < Server/src/config/schema_student.sql
-```
-
-Adds: `fee_invoices`, `books`, `book_issues`, and makes `receipt_hash` /
-`document_hash` nullable.
-
-### 4.4 — Avatar column
-
-```bash
-mysql -u root -p educhain360_db -e "ALTER TABLE users ADD COLUMN avatar_data MEDIUMTEXT NULL AFTER id_card_photo_url;"
-```
-
-If you get **"Duplicate column name 'avatar_data'"** → it's already there. Skip.
-
-### 4.5 — Verify
+### 4.3 Verify
 
 ```bash
 mysql -u root -p educhain360_db -e "SHOW TABLES;"
 ```
 
-You should see ~18 tables. If not, one of the steps above failed — re-run it
-and check for errors.
+You should see ~23 tables. If not, the schema didn't apply — re-run step 4.2.
 
 ---
 
@@ -170,48 +145,61 @@ cd Server
 npm install
 ```
 
-Expected: `added XXX packages in Xs`. Warnings about deprecated packages are
-normal — you only need to worry about errors.
+Expected: `added XXX packages in Xs`.
 
-Then run the seeds **in this order**:
+### 5.1 Bootstrap the admin user
 
 ```bash
-npm run seed
+npm run bootstrap
 ```
 
 Expected output:
 ```
-🔄 Updated Admin: admin@fwu.edu.np
-🔄 Updated Teacher: teacher@fwu.edu.np
-   ↳ teachers.id = 1 (employee_code STF-0142)
-🔄 Updated Student: student@fwu.edu.np
-...
-🎉 Seed complete. Login credentials (dev):
-   Admin          → admin@fwu.edu.np / admin123
-   Teacher        → teacher@fwu.edu.np / teacher123
-   Student        → student@fwu.edu.np / student123
-   ...
+🚀 Bootstrapping EduChain360...
+
+📋 Roles
+   ✓ 8 roles ready
+
+👤 Admin account
+   ✓ Admin user created: admin@fwu.edu.np
+
+✅ Bootstrap complete.
+
+   Login credentials:
+     Email:    admin@fwu.edu.np
+     Password: admin123
 ```
+
+This is **idempotent** — safe to run anytime. It creates only:
+- 8 roles
+- 1 admin user (from `.env`)
+
+**Every other account** — teachers, students, accountants, parents — is created **through the Admin dashboard** after you log in. This is the point: real data, not seeds.
+
+### 5.2 (Dev only) Create test users
+
+For faster local testing, add 3 more accounts (Teacher, Student, Accountant) without going through the Admin UI:
 
 ```bash
-npm run seed:student
+npm run test:users
 ```
 
-Expected output:
+Expected:
 ```
-🌱 Seeding student data...
-✅ Student seed complete:
-   • Class: Grade 11 Science A (2083/2084)
-   • Rajan enrolled as Roll 14
-   • Attendance for last 30 days
-   • Mid-term exam with submitted marks (5 subjects)
-   • Fee invoices (4) + receipts (2)
-   • Certificates (2)
-   • Books + 1 active issue
-   • Notices (3)
+🧪 Creating test users...
+
+   ✓ Created Teacher     teacher@fwu.edu.np
+   ✓ Created Student     student@fwu.edu.np
+   ✓ Created Accountant  accountant@fwu.edu.np
+
+✅ Test users ready.
 ```
 
-### 5.1 — Start the backend server
+Re-runnable — updates in place, never duplicates.
+
+**Do NOT run this in production.** It creates hardcoded test credentials.
+
+### 5.3 Start the backend server
 
 ```bash
 npm run dev
@@ -224,9 +212,9 @@ Expected:
    Health: http://localhost:5000/api/health
 ```
 
-**Keep this terminal open.** Nodemon will auto-restart when you edit files.
+Keep this terminal open. Nodemon auto-restarts on file changes.
 
-### 5.2 — Smoke test in a **separate** terminal
+### 5.4 Smoke test (separate terminal)
 
 ```bash
 curl http://localhost:5000/api/health
@@ -238,16 +226,14 @@ Should return `{"success":true,"service":"EduChain360 API",...}`.
 
 ## 6. Frontend Setup
 
-Open a **second terminal** (leave the backend running in the first):
+Open a **second terminal** (leave the backend running):
 
 ```bash
 cd EduChain360/Client
 npm install
 ```
 
-Expected: `added XXX packages in Xs`.
-
-### 6.1 — Start the frontend dev server
+### 6.1 Start the frontend
 
 ```bash
 npm run dev
@@ -258,87 +244,140 @@ Expected:
 VITE v6.x.x  ready in XXX ms
 
 ➜  Local:   http://localhost:5173/
-➜  press h + enter to show help
 ```
 
-### 6.2 — Open the app
+### 6.2 Open the app
 
 Open **http://localhost:5173** in your browser.
 
-You should see the EduChain360 login page (navy brand panel on the left,
-"Welcome back" form on the right).
+You should see the EduChain360 login page (navy panel on the left, "Welcome back" form on the right).
 
 ---
 
 ## 7. Login Credentials
 
-All development accounts use **plaintext passwords** (bcrypt comes later).
+After `npm run bootstrap` (and optionally `npm run test:users`):
 
 | Role | Email | Password | Lands on |
 |------|-------|----------|----------|
 | Admin | `admin@fwu.edu.np` | `admin123` | `/admin` |
-| Teacher | `teacher@fwu.edu.np` | `teacher123` | `/teacher` |
-| Student | `student@fwu.edu.np` | `student123` | `/student` |
-| Parent | `parent@fwu.edu.np` | `parent123` | `/parent` |
-| Accountant | `accountant@fwu.edu.np` | `acc123` | `/accountant` |
-| Librarian | `librarian@fwu.edu.np` | `lib123` | `/librarian` |
-| HR | `hr@fwu.edu.np` | `hr123` | `/hr` |
-| Lab Assistant | `lab@fwu.edu.np` | `lab123` | `/lab` |
+| Teacher *(test)* | `teacher@fwu.edu.np` | `teacher123` | `/teacher` |
+| Student *(test)* | `student@fwu.edu.np` | `student123` | `/student` |
+| Accountant *(test)* | `accountant@fwu.edu.np` | `acc123` | `/accountant` |
 
-You can also log in with the **School ID** instead of email:
-`ADM-001`, `TCH-001`, `STU-014`, `PAR-001`, etc.
+You can also log in with the **School ID**:
+- `ADM-001`, `TCH-001`, `STU-001`, `ACC-001`
+
+Parent, Librarian, HR, Lab Assistant accounts don't exist by default — create them through the Admin dashboard when needed.
 
 ---
 
-## 8. Project Structure (what's where)
+## 8. The Real-Data Workflow
+
+Unlike a seeded demo, this project starts **empty**. Every entity is created through the UI:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ ADMIN                                                       │
+│   1. Create subjects        (Physics, Math, Chemistry, …)   │
+│   2. Create classes         (Grade 11 Science A, …)         │
+│   3. Create teachers        (users with Teacher role)       │
+│   4. Create students        (users with Student role)       │
+│   5. Enroll students        (student → class + roll no.)    │
+│   6. Assign teachers        (teacher → class + subject)     │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ ACCOUNTANT                                                  │
+│   7. Define fee structure   (Tuition, Exam, Library, …)     │
+│   8. Generate invoices      (per class, per term)           │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ TEACHER                                                     │
+│   9. Create exams           (Mid-term 2083, …)              │
+│  10. Enter marks            (per student, per subject)      │
+│  11. Mark attendance        (daily, per class)              │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ STUDENT                                                     │
+│  12. Sees dashboard, attendance, results, fees, receipts    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Nothing is pre-populated.** This is the correct "real" state — no fake data, no demo seeds mixed with real users.
+
+---
+
+## 9. Project Structure
 
 ### Backend (`Server/`)
 
 ```
 src/
-├── server.js                  # Express app entry point
+├── server.js                    Express app entry point
 ├── config/
-│   ├── db.js                  # MySQL pool
-│   ├── schema.sql             # Base tables (run once)
-│   ├── schema_student.sql     # Student-phase tables (run once)
+│   ├── db.js                    MySQL connection pool
+│   └── schema.sql               ★ THE canonical schema (run once)
 ├── middleware/
-│   ├── auth.js                # JWT verification → req.user
-│   ├── role.js                # requireRole(...) gate
-│   └── errorHandler.js
+│   ├── auth.js                  JWT verification → req.user
+│   ├── role.js                  requireRole(...) gate
+│   └── errorHandler.js          404 + global error JSON
 ├── controllers/
-│   ├── auth.controller.js     # login, me
-│   ├── student.controller.js  # all student endpoints
-│   └── notifications.controller.js
+│   ├── auth.controller.js       login, me, profile, photo, password
+│   ├── student.controller.js    all student endpoints
+│   ├── teacher.controller.js    all teacher endpoints
+│   ├── accountant.controller.js all accountant endpoints
+│   ├── notifications.controller.js  shared notices (role-filtered)
+│   └── search.controller.js     role-dispatched search
 ├── routes/
-│   ├── index.js               # mounts /api/auth, /api/student, /api/notifications
+│   ├── index.js                 mounts /api/* groups
 │   ├── auth.routes.js
 │   ├── student.routes.js
-│   └── notifications.routes.js
+│   ├── teacher.routes.js
+│   ├── accountant.routes.js
+│   ├── notifications.routes.js
+│   └── search.routes.js
 └── utils/
-    ├── seed.js                # creates 8 user logins
-    └── seed-student.js        # Rajan Thapa's demo data
+    ├── bootstrap.js             ★ Creates 8 roles + 1 admin
+    └── test-users.js            (dev) creates 3 test accounts
 ```
+
+**Only two setup files exist:**
+- `config/schema.sql` — the database
+- `utils/bootstrap.js` — the first admin
+
+Everything else is runtime code.
 
 ### Frontend (`Client/`)
 
 ```
 src/
-├── main.jsx                   # React entry, wraps <App /> in <BrowserRouter>
-├── App.jsx                    # all routes
-├── index.css                  # Tailwind theme + print styles
+├── main.jsx                     React entry (wraps App in BrowserRouter)
+├── App.jsx                      all routes
+├── index.css                    Tailwind theme + print styles
 ├── api/
-│   ├── client.js              # axios instance + JWT interceptor
+│   ├── client.js                axios + JWT interceptor
 │   ├── auth.js
 │   ├── student.js
-│   └── notifications.js
+│   ├── teacher.js
+│   ├── accountant.js
+│   ├── notifications.js
+│   └── search.js
 ├── context/
-│   └── AuthContext.jsx        # user state, login, logout, updateUser
+│   └── AuthContext.jsx
 ├── hooks/
-│   └── useFetch.js            # shared fetch hook (loading/error/retry)
+│   └── useFetch.js              shared loading/error/retry hook
 ├── constants/
-│   └── nav.js                 # per-role sidebar items
+│   └── nav.js                   per-role sidebar items
+├── config/
+│   └── features.js              feature flags for phased rollout
 ├── layouts/
-│   └── DashboardLayout.jsx    # shared sidebar + topbar shell
+│   └── DashboardLayout.jsx      shared sidebar + topbar shell
 ├── components/
 │   ├── ProtectedRoute.jsx
 │   ├── Spinner.jsx
@@ -350,155 +389,147 @@ src/
 │   ├── SearchBox.jsx
 │   ├── NotificationBell.jsx
 │   ├── UserMenu.jsx
-│   └── admin/                 # admin-specific components (collaborator)
+│   ├── NoticesList.jsx          shared across all roles
+│   ├── NoticeDetail.jsx         shared across all roles
+│   ├── ExportButton.jsx
+│   └── admin/                   admin-specific components
 └── pages/
     ├── Login.jsx
     ├── Unauthorized.jsx
     ├── ProfilePlaceholder.jsx
     ├── SettingsPlaceholder.jsx
     ├── HelpPlaceholder.jsx
-    ├── admin/                 # admin pages (collaborator)
-    ├── teacher/
-    ├── student/
-    └── ...                    # one folder per role
+    ├── admin/                   admin pages
+    ├── teacher/                 teacher pages
+    ├── student/                 student pages
+    ├── accountant/              accountant pages
+    └── ...
 ```
 
 ---
 
-## 9. NPM Scripts Reference
+## 10. NPM Scripts Reference
 
 ### Backend (`cd Server`)
 
 | Command | What it does |
 |---------|--------------|
-| `npm run dev` | Start with nodemon (auto-restart on file change) |
-| `npm start` | Start without nodemon (production-style) |
-| `npm run seed` | Create the 8 role logins + teacher profile |
-| `npm run seed:student` | Create Rajan Thapa's demo data |
+| `npm run dev` | Start with nodemon (auto-restart) |
+| `npm start` | Start without nodemon |
+| `npm run bootstrap` | Create 8 roles + 1 admin (idempotent) |
+| `npm run test:users` | (dev) Create 3 test accounts |
 
 ### Frontend (`cd Client`)
 
 | Command | What it does |
 |---------|--------------|
-| `npm run dev` | Vite dev server on http://localhost:5173 |
+| `npm run dev` | Vite dev server on :5173 |
 | `npm run build` | Production build → `dist/` |
-| `npm run preview` | Preview the production build locally |
+| `npm run preview` | Preview the production build |
 
 ---
 
-## 10. Development Workflow
+## 11. Development Workflow
 
-### Terminal layout (recommended)
+### Terminal layout
 
-Keep **two terminals open**:
+Keep **two terminals** open:
 
 | Terminal | Directory | Command |
 |----------|-----------|---------|
 | 1 | `Server/` | `npm run dev` |
 | 2 | `Client/` | `npm run dev` |
 
-Open a **third terminal** for git / curl / mysql commands.
+Open a **third** for git / curl / mysql.
 
 ### Making changes
 
-- **Backend changes** → nodemon auto-restarts within 1–2 seconds
-- **Frontend changes** → Vite hot-reloads instantly (no refresh needed)
-- **Schema changes** → you need to run the SQL manually; nodemon won't do it
+- **Backend changes** → nodemon restarts within 1–2 seconds
+- **Frontend changes** → Vite hot-reloads instantly
+- **Schema changes** → edit `schema.sql`, then re-run it (safe)
 
 ### Daily git workflow
 
 ```bash
 git checkout <your-branch>
-git pull origin main                # or origin <your-branch>
+git pull origin main
 # ... make changes ...
 git add -A
 git commit -m "feat(scope): short description"
 git push origin <your-branch>
 ```
 
-**Branch naming convention:**
+**Branch naming:**
 - `main` — stable, everyone merges into this
-- `student`, `teacher`, `parent`, `admin` — per-role feature branches
+- `student`, `teacher`, `parent`, `accountant` — per-role feature branches
 - `fix/<what>` — bugfix branches
-- `polish/<what>` — UI/UX polish branches
 
 ### Shared files — coordinate before editing
 
-These files are touched by every role's work. **Add your lines, don't modify
-someone else's.**
+These files are touched by every role's work. **Add your lines, don't modify someone else's.**
 
 | File | Rule |
 |------|------|
 | `Server/src/routes/index.js` | Add one `router.use('/your-role', ...)` line |
 | `Client/src/App.jsx` | Add one `<Route ... />` per page |
 | `Client/src/constants/nav.js` | Add one role block |
+| `Client/src/config/features.js` | Add your flags |
 | `Client/src/index.css` | Append only |
-| `Server/src/config/schema*.sql` | Append new tables only |
+| `Server/src/config/schema.sql` | Append new tables only — never edit existing |
 
-**Never edit another role's page folder.** Each role owns its own directory
-under `pages/`.
+**Never edit another role's page folder.** Each role owns its own directory under `pages/`.
 
 ---
 
-## 11. Verifying Everything Works
-
-Once both servers are running, walk through this checklist. If all pass, your
-environment is healthy.
+## 12. Verifying Everything Works
 
 ### Backend health
-
 ```bash
 curl http://localhost:5000/api/health
-# → {"success":true,"service":"EduChain360 API",...}
+# → {"success":true,...}
 ```
 
-### Login + token
-
+### Login as admin
 ```bash
-TOKEN=$(curl -s -X POST http://localhost:5000/api/auth/login \
+curl -s -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"identifier":"student@fwu.edu.np","password":"student123"}' \
-  | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
-
-echo "Token length: ${#TOKEN}"
-# → Token length: 272 (or similar)
+  -d '{"identifier":"admin@fwu.edu.np","password":"admin123"}' \
+  | head -c 200
+# → {"success":true,"token":"eyJ...",...}
 ```
 
-### Student API endpoints
-
+### Database state
 ```bash
-curl -s http://localhost:5000/api/student/dashboard -H "Authorization: Bearer $TOKEN" | head -c 200
-curl -s http://localhost:5000/api/student/notices   -H "Authorization: Bearer $TOKEN" | head -c 200
-curl -s "http://localhost:5000/api/student/search?q=physics" -H "Authorization: Bearer $TOKEN" | head -c 200
+mysql -u root -p educhain360_db -e "
+  SELECT u.id, u.full_name, u.email, r.name AS role
+    FROM users u JOIN roles r ON r.id = u.role_id
+   ORDER BY u.id;
+"
 ```
 
-All three should return JSON with `"success":true`.
+After `bootstrap` only → **1 row** (admin).
+After `test:users` → **4 rows** (admin + 3 test users).
 
 ### Frontend
 
-Open http://localhost:5173 and log in as **Student**. You should see:
+Open http://localhost:5173 → log in as each role → verify the correct dashboard loads.
 
-- Dashboard with 4 KPI cards
-- Today's timetable
-- Recent notices (3 items)
-- 2 certificates
-
-Sidebar should have 8 items: Dashboard, My Profile, Attendance, Results, Fees,
-Certificates, Library, Notices.
+| Role | Expected page |
+|------|---------------|
+| Admin | Admin dashboard (with sidebar: Dashboard, Admissions, Users, Academics, …) |
+| Teacher | Teacher dashboard with KPIs, or "no classes assigned yet" empty state |
+| Student | Student dashboard with empty state (no enrollment yet) |
+| Accountant | Accountant dashboard with zeroes |
 
 ---
 
 ## Troubleshooting
 
 ### "npm error code EJSONPARSE" / "Invalid package.json"
-
-Your `package.json` has a syntax error (usually a missing comma).
-**Copy the correct package.json from a teammate** or the repo's last known
-good version. Do not try to fix it by hand.
+Your `package.json` has a syntax error. Copy the correct version from a teammate or `git checkout origin/main -- Client/package.json`.
 
 ### "vite is not recognized as an internal or external command"
-
-You're either in the wrong directory, or `node_modules/` is missing.
+Wrong directory or `node_modules/` missing.
 ```bash
 cd Client
 rm -rf node_modules package-lock.json
@@ -506,62 +537,47 @@ npm install
 npm run dev
 ```
 
-### "Could not resolve ./pages/... " or 500 error in browser
-
+### "Could not resolve ./pages/..." or 500 error in browser
 A file was imported with the wrong extension or filename.
 - Check the file exists: `ls Client/src/pages/student/`
-- Check the case of the filename matches the import (Windows is case-insensitive
-  but Vite is not)
-- `.jsx` files must be imported **with** the `.jsx` extension in this project
+- Case-sensitive on Linux/Mac. Windows is case-insensitive but Vite is strict.
+- `.jsx` files must be imported **with** the `.jsx` extension in this project.
 
 ### "Route not found: /api/student/..."
-
-The server isn't mounting that route group. Open
-`Server/src/routes/index.js` and verify the mount exists:
-
+The server isn't mounting that route group. Open `Server/src/routes/index.js` and verify:
 ```js
 router.use('/student', studentRoutes);
 ```
-
 Watch for typos — `/students` (plural) is a different route than `/student`.
 
-### "Invalid credentials" when logging in as a seeded user
-
-The seed ran but the password may have changed during testing.
-
+### "Invalid credentials" when logging in
 ```bash
-mysql -u root -p educhain360_db -e "SELECT email, password_hash FROM users WHERE email='student@fwu.edu.np';"
+mysql -u root -p educhain360_db -e "
+  SELECT u.email, r.name AS role FROM users u
+    JOIN roles r ON r.id = u.role_id;
+"
 ```
+If no rows → run `npm run bootstrap`. If the account exists but the password doesn't match, re-run `npm run bootstrap` (admin) or `npm run test:users` (test accounts).
 
-Reset to the seed value:
-
+### "Unknown column" errors
+Your DB is missing a column. Fresh install:
 ```bash
-mysql -u root -p educhain360_db -e "UPDATE users SET password_hash='student123' WHERE email='student@fwu.edu.np';"
+mysql -u root -p -e "DROP DATABASE IF EXISTS educhain360_db;"
+mysql -u root -p < Server/src/config/schema.sql
+npm run bootstrap
 ```
-
-Or re-run `npm run seed` from `Server/`.
-
-### "Unknown column 'avatar_data'" in MySQL
-
-The migration from §4.4 hasn't been run. Run it.
-
-### "ER_NO_SUCH_TABLE: fee_invoices" (or `books`, `book_issues`)
-
-The student schema from §4.3 hasn't been run. Run it.
+This wipes all data — do not run on a DB with real data you want to keep.
 
 ### "MySQL connection failed"
-
-- Is MySQL actually running?
+- Is MySQL running?
   - macOS: `brew services list | grep mysql`
   - Ubuntu: `sudo service mysql status`
   - Windows: check the Services app for "MySQL80"
 - Does `DB_PASSWORD` in `Server/.env` match your real MySQL password?
-- Is the database `educhain360_db` created? Run `mysql -u root -p -e "SHOW DATABASES;"`.
+- Does the database `educhain360_db` exist? `mysql -u root -p -e "SHOW DATABASES;"`
 
 ### "EADDRINUSE: address already in use :::5000"
-
 Something else is using port 5000. Find and kill it:
-
 ```bash
 # macOS / Linux
 lsof -i :5000
@@ -571,60 +587,49 @@ kill -9 <PID>
 netstat -ano | findstr :5000
 taskkill //PID <PID> //F
 ```
-
-Or change `PORT=5001` in `Server/.env` **and** update
-`Client/vite.config.js` proxy target to `http://localhost:5001`.
+Or change `PORT=5001` in `Server/.env` **and** update `Client/vite.config.js` proxy target.
 
 ### "You cannot render a <Router> inside another <Router>"
-
-You have two `<BrowserRouter>`s. There should be **exactly one**, in
-`Client/src/main.jsx`. `App.jsx` must **not** contain a `<BrowserRouter>`.
+Two `<BrowserRouter>`s. There should be **exactly one** — in `Client/src/main.jsx`. `App.jsx` must not contain a `<BrowserRouter>`.
 
 ### Vite shows "esbuild deprecated" or "Invalid input options" warnings
-
-You're on Vite 8. Our project pins Vite 6. Reinstall:
-
+You're on Vite 8. Project pins Vite 6.
 ```bash
 cd Client
 rm -rf node_modules package-lock.json
 npm install
-npm ls vite
-# → should say vite@6.x.x
+npm ls vite   # → should say vite@6.x.x
 ```
 
 ### Whitespace / line-ending warnings on Windows
-
-Git on Windows converts line endings by default. Our repo uses LF (Linux-style).
-If you see whole-file diffs on files you barely touched:
-
 ```bash
 git config --global core.autocrlf input
 git rm --cached -r .
 git reset --hard
 ```
 
-### "Missing script: seed:student"
+### "fetcher is not a function" error card
+A `useFetch` call received `null` instead of a function — usually because an ID isn't ready yet. The hook handles this gracefully if it's been updated (see `Client/src/hooks/useFetch.js`). If not, replace that file with the version that includes the `if (typeof fetcher !== 'function')` guard.
 
-Your `Server/package.json` doesn't have the script. Add under `"scripts"`:
+### Everything is broken, nothing helps — nuclear reset
 
-```json
-"seed:student": "node src/utils/seed-student.js"
-```
-
-### Everything is broken, nothing helps
-
-Nuclear reset (⚠️ this wipes your local uncommitted changes):
+⚠️ Wipes all data:
 
 ```bash
 cd EduChain360
-git stash                       # or: git checkout -- . (worse)
+git checkout -- .
 git pull origin main
 
+# Drop and recreate the DB
+mysql -u root -p -e "DROP DATABASE IF EXISTS educhain360_db;"
+mysql -u root -p < Server/src/config/schema.sql
+
+# Reinstall + bootstrap
 cd Server
 rm -rf node_modules
 npm install
-npm run seed
-npm run seed:student
+npm run bootstrap
+npm run test:users   # optional
 
 cd ../Client
 rm -rf node_modules
@@ -638,8 +643,7 @@ Then start both servers again.
 ## Need Help?
 
 1. Search this file first — most issues are covered
-2. Check the git history: `git log --oneline -20` — recent commits often
-   hint at what changed
+2. Check the git history: `git log --oneline -20`
 3. Ask on the team channel with:
    - The exact command you ran
    - The complete output (not a summary)
@@ -648,6 +652,4 @@ Then start both servers again.
 
 ---
 
-**Last updated:** whenever someone edits this file, update the date
-**Maintained by:** the whole team — if you found a setup step that broke or
-helped, edit this file and push.
+**Maintained by:** the whole team — if you found a setup step that broke or helped, edit this file and push.

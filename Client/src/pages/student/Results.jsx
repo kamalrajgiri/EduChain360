@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useFetch } from '../../hooks/useFetch.js';
-import { getResults } from '../../api/student.js';
+import { getAllExams } from '../../api/student.js';
 import { SkeletonCard, SkeletonTable } from '../../components/Skeleton.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
@@ -32,7 +32,9 @@ function remarkFor(pct) {
   return 'Failed';
 }
 
-function ReportCard({ exam, enrollment, classRank, classSize, student }) {
+/* ─── Report card ────────────────────────────────────── */
+
+function ReportCard({ exam, student, enrollment }) {
   const totalFull = exam.subjects.reduce((s, r) => s + r.full_marks, 0);
   const totalObt  = exam.subjects.reduce((s, r) => s + r.marks_obtained, 0);
   const status    = exam.aggregate >= 40 ? 'PASS' : 'FAIL';
@@ -41,7 +43,7 @@ function ReportCard({ exam, enrollment, classRank, classSize, student }) {
     <div className="bg-surface border border-border rounded-2xl overflow-hidden print-keep print-doc">
 
       <div className="bg-primary-dark text-text-inverse px-6 py-5">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="h-11 w-11 rounded-lg bg-secondary grid place-items-center text-sm font-bold shrink-0">
               EC
@@ -53,9 +55,11 @@ function ReportCard({ exam, enrollment, classRank, classSize, student }) {
               <p className="text-base font-bold mt-0.5">Academic Report Card</p>
             </div>
           </div>
-          <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-secondary text-text-inverse">
-            {exam.exam_name}
-          </span>
+          <div className="text-right">
+            <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-secondary text-text-inverse">
+              {exam.exam_type}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -70,9 +74,15 @@ function ReportCard({ exam, enrollment, classRank, classSize, student }) {
             {enrollment?.roll_number ?? '—'}
           </p>
         </div>
-        <div className="col-span-2">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">Class</p>
-          <p className="text-sm font-semibold text-text-main mt-0.5">{enrollment?.class_name || '—'}</p>
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">Exam</p>
+          <p className="text-sm font-semibold text-text-main mt-0.5">{exam.exam_name}</p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">Date</p>
+          <p className="text-sm font-semibold text-text-main mt-0.5">
+            {new Date(exam.exam_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </p>
         </div>
       </div>
 
@@ -115,7 +125,7 @@ function ReportCard({ exam, enrollment, classRank, classSize, student }) {
       </div>
 
       <div className="px-6 pb-5">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div className="bg-background border border-border rounded-xl px-4 py-3">
             <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">Percentage</p>
             <p className="text-lg font-bold text-primary mt-0.5">{exam.aggregate}%</p>
@@ -123,12 +133,6 @@ function ReportCard({ exam, enrollment, classRank, classSize, student }) {
           <div className="bg-background border border-border rounded-xl px-4 py-3">
             <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">Grade</p>
             <div className="mt-1"><GradeBadge grade={exam.grade} /></div>
-          </div>
-          <div className="bg-background border border-border rounded-xl px-4 py-3">
-            <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">Class rank</p>
-            <p className="text-lg font-bold text-text-main mt-0.5">
-              {classRank ? `${classRank} / ${classSize}` : '—'}
-            </p>
           </div>
           <div className={`rounded-xl px-4 py-3 border ${
             status === 'PASS'
@@ -146,13 +150,13 @@ function ReportCard({ exam, enrollment, classRank, classSize, student }) {
       <div className="px-6 pb-4">
         <div className="bg-background border border-border rounded-lg px-4 py-2.5">
           <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-text-muted">
-            <span>SHA-256: 4b7e21…af309c</span>
+            <span>SHA-256: ——</span>
             <span className="text-text-muted/60">|</span>
-            <span>Block #8791</span>
+            <span>Block #—</span>
             <span className="text-text-muted/60">|</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold
-                             bg-status-verified/10 text-status-verified">
-              Verified — not tampered
+                             bg-status-pending/10 text-status-pending">
+              Awaiting blockchain anchor
             </span>
           </div>
         </div>
@@ -171,17 +175,59 @@ function ReportCard({ exam, enrollment, classRank, classSize, student }) {
 
       <div className="hidden print:block border-t border-border px-6 py-3">
         <p className="text-[10px] text-text-muted text-center">
-          Generated by EduChain360 · {new Date().toLocaleString('en-GB')} · Verify at educhain360.fwu.edu.np/verify
+          Generated by EduChain360 · {new Date().toLocaleString('en-GB')}
         </p>
       </div>
     </div>
   );
 }
 
+/* ─── Insights strip ─────────────────────────────────────── */
+
+function Insights({ exam }) {
+  if (!exam.subjects || exam.subjects.length < 2) return null;
+
+  const sorted = [...exam.subjects].sort(
+    (a, b) => (b.marks_obtained / b.full_marks) - (a.marks_obtained / a.full_marks)
+  );
+  const best = sorted[0];
+  const weakest = sorted[sorted.length - 1];
+  const bestPct = Math.round((best.marks_obtained / best.full_marks) * 100);
+  const weakestPct = Math.round((weakest.marks_obtained / weakest.full_marks) * 100);
+  const spread = bestPct - weakestPct;
+
+  return (
+    <section className="bg-surface border border-border rounded-2xl p-5 print:hidden">
+      <h2 className="text-sm font-bold text-text-main mb-3">Insights</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-background border border-border rounded-xl px-4 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">Strongest</p>
+          <p className="text-sm font-bold text-status-verified mt-0.5">{best.subject}</p>
+          <p className="text-[11px] text-text-muted mt-0.5">{bestPct}% · Grade {best.grade}</p>
+        </div>
+        <div className="bg-background border border-border rounded-xl px-4 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">Needs focus</p>
+          <p className="text-sm font-bold text-status-pending mt-0.5">{weakest.subject}</p>
+          <p className="text-[11px] text-text-muted mt-0.5">{weakestPct}% · Grade {weakest.grade}</p>
+        </div>
+        <div className="bg-background border border-border rounded-xl px-4 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">Score spread</p>
+          <p className="text-sm font-bold text-text-main mt-0.5">{spread} pts</p>
+          <p className="text-[11px] text-text-muted mt-0.5">
+            {spread <= 15 ? 'Well balanced' : spread <= 30 ? 'Moderate variance' : 'Wide variance'}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── Main page ──────────────────────────────────────── */
+
 export default function StudentResults() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data, loading, error, retry } = useFetch(() => getResults(), []);
+  const { data, loading, error, retry } = useFetch(() => getAllExams(), []);
   const [activeIdx, setActiveIdx] = useState(0);
 
   const exams = data?.exams || [];
@@ -211,31 +257,31 @@ export default function StudentResults() {
       {!loading && !error && activeExam && (
         <div className="space-y-5">
 
-          {exams.length > 1 && (
-            <div className="flex flex-wrap gap-2 print:hidden">
-              {exams.map((ex, idx) => (
-                <button
-                  key={ex.exam_id}
-                  onClick={() => setActiveIdx(idx)}
-                  className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${
-                    idx === activeIdx
-                      ? 'bg-primary text-text-inverse'
-                      : 'bg-surface border border-border text-text-main hover:border-primary'
-                  }`}
-                >
-                  {ex.exam_name}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Exam switcher */}
+          <div className="flex flex-wrap gap-2 print:hidden">
+            {exams.map((ex, idx) => (
+              <button
+                key={`${ex.exam_name}-${idx}`}
+                onClick={() => setActiveIdx(idx)}
+                className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${
+                  idx === activeIdx
+                    ? 'bg-primary text-text-inverse'
+                    : 'bg-surface border border-border text-text-main hover:border-primary'
+                }`}
+              >
+                {ex.exam_name}
+              </button>
+            ))}
+          </div>
 
           <ReportCard
             exam={activeExam}
-            enrollment={data.enrollment}
-            classRank={data.classRank}
-            classSize={data.classSize}
             student={user}
+            enrollment={null}
           />
+
+          {/* Insights */}
+          <Insights exam={activeExam} />
 
           <div className="flex items-center justify-between print:hidden">
             <button

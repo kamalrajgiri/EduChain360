@@ -3,8 +3,9 @@ import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Spinner from './components/Spinner.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import { FEATURES } from './config/features.js';
 
-// ─── Shared pages (all authenticated roles) ────────────────
+// ─── Shared pages (all roles) ──────────────────────────────
 import ProfilePlaceholder  from './pages/ProfilePlaceholder.jsx';
 import SettingsPlaceholder from './pages/SettingsPlaceholder.jsx';
 import HelpPlaceholder     from './pages/HelpPlaceholder.jsx';
@@ -27,7 +28,16 @@ import AdminBlockchain from './pages/admin/Blockchain';
 import AdminSettings   from './pages/admin/Settings';
 
 // ─── Teacher ───────────────────────────────────────────────
-import TeacherDashboard from './pages/teacher/Dashboard.jsx';
+import TeacherDashboard      from './pages/teacher/Dashboard.jsx';
+import TeacherMyClasses      from './pages/teacher/MyClasses.jsx';
+import TeacherClassDetail    from './pages/teacher/ClassDetail.jsx';
+import TeacherAttendance   from './pages/teacher/Attendance.jsx';
+import TeacherExamsMarks   from './pages/teacher/ExamsMarks.jsx';
+import TeacherTimetable    from './pages/teacher/Timetable.jsx';
+import TeacherNotices      from './pages/teacher/Notices.jsx';
+import TeacherNoticeView   from './pages/teacher/NoticeView.jsx';
+import TeacherProfile      from './pages/teacher/Profile.jsx';
+
 
 // ─── Student ───────────────────────────────────────────────
 import StudentDashboard       from './pages/student/Dashboard.jsx';
@@ -42,9 +52,24 @@ import StudentProfile         from './pages/student/Profile.jsx';
 import StudentNotices         from './pages/student/Notices.jsx';
 import StudentNoticeView      from './pages/student/NoticeView.jsx';
 
+// ─── Accountant ───────────────────────────────────────────
+import AccountantDashboard    from './pages/accountant/Dashboard.jsx';
+import AccountantTransactions from './pages/accountant/Transactions.jsx';
+import AccountantFeeStructure from './pages/accountant/FeeStructure.jsx';
+import AccountantReports      from './pages/accountant/Reports.jsx';
+import AccountantReceipt      from './pages/accountant/Receipt.jsx';
+import AccountantInvoices from './pages/accountant/Invoices.jsx';
+import AccountantPayroll   from './pages/accountant/Payroll.jsx';
+import AccountantPayrollRun from './pages/accountant/PayrollRun.jsx';
+import AccountantSalarySlip from './pages/accountant/SalarySlip.jsx';
+import AccountantStudentDetail from './pages/accountant/StudentDetail.jsx';
+import AccountantStatement from './pages/accountant/Statement.jsx';
+import AccountantDaybook from './pages/accountant/Daybook.jsx';
+import AccountantProfile from './pages/accountant/Profile.jsx';
+import AccountantNotices    from './pages/accountant/Notices.jsx';
+import AccountantNoticeView from './pages/accountant/NoticeView.jsx';
 // ─── Other roles ───────────────────────────────────────────
 import ParentDashboard       from './pages/parent/Dashboard.jsx';
-import AccountantDashboard   from './pages/accountant/Dashboard.jsx';
 import LibrarianDashboard    from './pages/librarian/Dashboard.jsx';
 import HRDashboard           from './pages/hr/Dashboard.jsx';
 import LabAssistantDashboard from './pages/lab/Dashboard.jsx';
@@ -64,6 +89,14 @@ const ALL_ROLES = [
   'Admin', 'Teacher', 'Student', 'Parent',
   'Accountant', 'Librarian', 'HR', 'Lab Assistant'
 ];
+
+/**
+ * Helper — if a feature is off, render a redirect to home.
+ * Keeps the JSX tidy so we don't repeat the ternary everywhere.
+ */
+function gate(flag, element, disabled = <Navigate to="/" replace />) {
+  return FEATURES[flag] === false ? disabled : element;
+}
 
 function RootRedirect() {
   const { user, loading } = useAuth();
@@ -89,13 +122,19 @@ export default function App() {
           <Route path="/verify" element={<PublicVerifyStub />} />
           <Route path="/" element={<RootRedirect />} />
 
-          {/* ─── Shared pages (all authenticated roles) ─── */}
+          {/* ─── Shared pages ─────────────────────────── */}
           <Route path="/profile"
-            element={<ProtectedRoute allowedRoles={ALL_ROLES}><ProfilePlaceholder /></ProtectedRoute>} />
+            element={gate('sharedProfile',
+              <ProtectedRoute allowedRoles={ALL_ROLES}><ProfilePlaceholder /></ProtectedRoute>
+            )} />
           <Route path="/settings"
-            element={<ProtectedRoute allowedRoles={ALL_ROLES}><SettingsPlaceholder /></ProtectedRoute>} />
+            element={gate('sharedSettings',
+              <ProtectedRoute allowedRoles={ALL_ROLES}><SettingsPlaceholder /></ProtectedRoute>
+            )} />
           <Route path="/help"
-            element={<ProtectedRoute allowedRoles={ALL_ROLES}><HelpPlaceholder /></ProtectedRoute>} />
+            element={gate('sharedHelp',
+              <ProtectedRoute allowedRoles={ALL_ROLES}><HelpPlaceholder /></ProtectedRoute>
+            )} />
 
           {/* ─── Admin — nested layout ─────────────────── */}
           <Route
@@ -119,52 +158,176 @@ export default function App() {
           </Route>
 
           {/* ─── Teacher ───────────────────────────────── */}
-          <Route path="/teacher"
-            element={<ProtectedRoute allowedRoles={['Teacher']}><TeacherDashboard /></ProtectedRoute>} />
+{/* ─── Teacher ───────────────────────────────────── */}
+<Route path="/teacher"
+  element={gate('teacherDashboard',
+    <ProtectedRoute allowedRoles={['Teacher']}><TeacherDashboard /></ProtectedRoute>
+  )} />
+<Route path="/teacher/profile"
+  element={gate('teacherProfile',
+    <ProtectedRoute allowedRoles={['Teacher']}><TeacherProfile /></ProtectedRoute>
+  )} />
+<Route path="/teacher/classes"
+  element={gate('teacherClasses',
+    <ProtectedRoute allowedRoles={['Teacher']}><TeacherMyClasses /></ProtectedRoute>
+  )} />
+<Route path="/teacher/classes/:classId"
+  element={gate('teacherClasses',
+    <ProtectedRoute allowedRoles={['Teacher']}><TeacherClassDetail /></ProtectedRoute>
+  )} />
+<Route path="/teacher/attendance"
+  element={gate('teacherAttendance',
+    <ProtectedRoute allowedRoles={['Teacher']}><TeacherAttendance /></ProtectedRoute>
+  )} />
+<Route path="/teacher/exams"
+  element={gate('teacherExams',
+    <ProtectedRoute allowedRoles={['Teacher']}><TeacherExamsMarks /></ProtectedRoute>
+  )} />
+<Route path="/teacher/timetable"
+  element={gate('teacherTimetable',
+    <ProtectedRoute allowedRoles={['Teacher']}><TeacherTimetable /></ProtectedRoute>
+  )} />
+<Route path="/teacher/notices"
+  element={gate('teacherNotices',
+    <ProtectedRoute allowedRoles={['Teacher']}><TeacherNotices /></ProtectedRoute>
+  )} />
+<Route path="/teacher/notices/:id"
+  element={gate('teacherNotices',
+    <ProtectedRoute allowedRoles={['Teacher']}><TeacherNoticeView /></ProtectedRoute>
+  )} />
 
           {/* ─── Student ───────────────────────────────── */}
           <Route path="/student"
-            element={<ProtectedRoute allowedRoles={['Student']}><StudentDashboard /></ProtectedRoute>} />
-          <Route path="/student/attendance"
-            element={<ProtectedRoute allowedRoles={['Student']}><StudentAttendance /></ProtectedRoute>} />
-          <Route path="/student/results"
-            element={<ProtectedRoute allowedRoles={['Student']}><StudentResults /></ProtectedRoute>} />
-          <Route path="/student/fees"
-            element={<ProtectedRoute allowedRoles={['Student']}><StudentFees /></ProtectedRoute>} />
-          <Route path="/student/fees/receipts/:id"
-            element={<ProtectedRoute allowedRoles={['Student']}><StudentReceipt /></ProtectedRoute>} />
-          <Route path="/student/certificates"
-            element={<ProtectedRoute allowedRoles={['Student']}><StudentCertificates /></ProtectedRoute>} />
-          <Route path="/student/certificates/:uuid"
-            element={<ProtectedRoute allowedRoles={['Student']}><StudentCertificateView /></ProtectedRoute>} />
-          <Route path="/student/library"
-            element={<ProtectedRoute allowedRoles={['Student']}><StudentLibrary /></ProtectedRoute>} />
+            element={gate('studentDashboard',
+              <ProtectedRoute allowedRoles={['Student']}><StudentDashboard /></ProtectedRoute>
+            )} />
           <Route path="/student/profile"
-            element={<ProtectedRoute allowedRoles={['Student']}><StudentProfile /></ProtectedRoute>} />
+            element={gate('studentProfile',
+              <ProtectedRoute allowedRoles={['Student']}><StudentProfile /></ProtectedRoute>
+            )} />
+          <Route path="/student/attendance"
+            element={gate('studentAttendance',
+              <ProtectedRoute allowedRoles={['Student']}><StudentAttendance /></ProtectedRoute>
+            )} />
+          <Route path="/student/results"
+            element={gate('studentResults',
+              <ProtectedRoute allowedRoles={['Student']}><StudentResults /></ProtectedRoute>
+            )} />
+          <Route path="/student/fees"
+            element={gate('studentFees',
+              <ProtectedRoute allowedRoles={['Student']}><StudentFees /></ProtectedRoute>
+            )} />
+          <Route path="/student/fees/receipts/:id"
+            element={gate('studentReceipt',
+              <ProtectedRoute allowedRoles={['Student']}><StudentReceipt /></ProtectedRoute>
+            )} />
+          <Route path="/student/certificates"
+            element={gate('studentCertificates',
+              <ProtectedRoute allowedRoles={['Student']}><StudentCertificates /></ProtectedRoute>
+            )} />
+          <Route path="/student/certificates/:uuid"
+            element={gate('studentCertificateView',
+              <ProtectedRoute allowedRoles={['Student']}><StudentCertificateView /></ProtectedRoute>
+            )} />
+          <Route path="/student/library"
+            element={gate('studentLibrary',
+              <ProtectedRoute allowedRoles={['Student']}><StudentLibrary /></ProtectedRoute>
+            )} />
           <Route path="/student/notices"
-            element={<ProtectedRoute allowedRoles={['Student']}><StudentNotices /></ProtectedRoute>} />
+            element={gate('studentNotices',
+              <ProtectedRoute allowedRoles={['Student']}><StudentNotices /></ProtectedRoute>
+            )} />
           <Route path="/student/notices/:id"
-            element={<ProtectedRoute allowedRoles={['Student']}><StudentNoticeView /></ProtectedRoute>} />
+            element={gate('studentNoticeView',
+              <ProtectedRoute allowedRoles={['Student']}><StudentNoticeView /></ProtectedRoute>
+            )} />
 
           {/* ─── Parent ────────────────────────────────── */}
           <Route path="/parent"
-            element={<ProtectedRoute allowedRoles={['Parent']}><ParentDashboard /></ProtectedRoute>} />
+            element={gate('parentDashboard',
+              <ProtectedRoute allowedRoles={['Parent']}><ParentDashboard /></ProtectedRoute>
+            )} />
 
           {/* ─── Accountant ────────────────────────────── */}
-          <Route path="/accountant"
-            element={<ProtectedRoute allowedRoles={['Accountant']}><AccountantDashboard /></ProtectedRoute>} />
+{/* ─── Accountant ────────────────────────────── */}
+<Route path="/accountant"
+  element={gate('accountantDashboard',
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantDashboard /></ProtectedRoute>
+  )} />
+  <Route path="/accountant/profile"
+  element={gate('accountantProfile',
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantProfile /></ProtectedRoute>
+  )} />
+  <Route path="/accountant/notices"
+  element={gate('accountantNotices',
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantNotices /></ProtectedRoute>
+  )} />
+<Route path="/accountant/notices/:id"
+  element={gate('accountantNotices',
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantNoticeView /></ProtectedRoute>
+  )} />
+<Route path="/accountant/transactions"
+  element={gate('accountantTransactions',
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantTransactions /></ProtectedRoute>
+  )} />
+  <Route path="/accountant/invoices"
+  element={gate('accountantInvoices',
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantInvoices /></ProtectedRoute>
+  )} />
+<Route path="/accountant/fee-structure"
+  element={gate('accountantFeeStructure',
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantFeeStructure /></ProtectedRoute>
+  )} />
+<Route path="/accountant/reports"
+  element={gate('accountantReports',
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantReports /></ProtectedRoute>
+  )} />
+  <Route path="/accountant/receipts/:id"
+  element={
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantReceipt /></ProtectedRoute>
+  } />
+  <Route path="/accountant/students/:id"
+  element={
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantStudentDetail /></ProtectedRoute>
+  } />
 
+<Route path="/accountant/students/:id/statement"
+  element={
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantStatement /></ProtectedRoute>
+  } />
+  <Route path="/accountant/payroll"
+  element={gate('accountantPayroll',
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantPayroll /></ProtectedRoute>
+  )} />
+<Route path="/accountant/payroll/runs/:id"
+  element={
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantPayrollRun /></ProtectedRoute>
+  } />
+<Route path="/accountant/payroll/slip/:runId/:userId"
+  element={
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantSalarySlip /></ProtectedRoute>
+  } />
+  <Route path="/accountant/daybook"
+  element={gate('accountantDaybook',
+    <ProtectedRoute allowedRoles={['Accountant']}><AccountantDaybook /></ProtectedRoute>
+  )} />
           {/* ─── Librarian ─────────────────────────────── */}
           <Route path="/librarian"
-            element={<ProtectedRoute allowedRoles={['Librarian']}><LibrarianDashboard /></ProtectedRoute>} />
+            element={gate('librarianDashboard',
+              <ProtectedRoute allowedRoles={['Librarian']}><LibrarianDashboard /></ProtectedRoute>
+            )} />
 
           {/* ─── HR ────────────────────────────────────── */}
           <Route path="/hr"
-            element={<ProtectedRoute allowedRoles={['HR']}><HRDashboard /></ProtectedRoute>} />
+            element={gate('hrDashboard',
+              <ProtectedRoute allowedRoles={['HR']}><HRDashboard /></ProtectedRoute>
+            )} />
 
           {/* ─── Lab ───────────────────────────────────── */}
           <Route path="/lab"
-            element={<ProtectedRoute allowedRoles={['Lab Assistant']}><LabAssistantDashboard /></ProtectedRoute>} />
+            element={gate('labDashboard',
+              <ProtectedRoute allowedRoles={['Lab Assistant']}><LabAssistantDashboard /></ProtectedRoute>
+            )} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

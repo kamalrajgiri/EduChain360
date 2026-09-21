@@ -8,8 +8,9 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "jest",
-    "seed": "node src/utils/seed.js",
-    "seed:student": "node src/utils/seed-student.js"
+    "bootstrap": "node src/utils/bootstrap.js",
+    "test:users": "node src/utils/test-users.js",
+    "demo:seed": "node src/utils/demo/seed-all.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -104,13 +104,22 @@ export default function StudentCertificateView() {
 
                 <div className="grid grid-cols-2 gap-4 border-t border-border pt-5">
                   <div>
-                    <p className="text-[11px] uppercase tracking-wider text-text-muted font-semibold">Certificate ID</p>
-                    <p className="text-sm font-mono text-text-main mt-0.5">{cert.credential_uuid}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] uppercase tracking-wider text-text-muted font-semibold">Issue date</p>
-                    <p className="text-sm text-text-main mt-0.5">{fmtDate(cert.issue_date)}</p>
-                  </div>
+  <p className="text-[11px] uppercase tracking-wider text-text-muted font-semibold">Certificate ID</p>
+  <p className="text-sm font-mono text-text-main mt-0.5">{cert.credential_uuid}</p>
+</div>
+<div>
+  <p className="text-[11px] uppercase tracking-wider text-text-muted font-semibold">Issue date</p>
+  <p className="text-sm text-text-main mt-0.5">{fmtDate(cert.issue_date)}</p>
+</div>
+<div className="col-span-2">
+  <p className="text-[11px] uppercase tracking-wider text-text-muted font-semibold">Verify code</p>
+  <p className="text-lg font-mono font-bold text-primary mt-0.5 tracking-wider">
+    {cert.verify_code || '—'}
+  </p>
+  <p className="text-[10px] text-text-muted mt-0.5">
+    Share this code with anyone who needs to verify this certificate
+  </p>
+</div>
                 </div>
 
                 <div className="border-t border-border pt-5 flex items-end justify-between">

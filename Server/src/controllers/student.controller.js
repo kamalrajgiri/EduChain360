@@ -116,14 +116,21 @@ export async function getDashboard(req, res, next) {
       todayTimetable = ttRows;
     }
 
-    const [noticeRows] = await pool.query(
-      `SELECT id, title, audience, published_at
-         FROM notices
-        WHERE status = 'SENT'
-          AND audience IN ('ALL','STUDENTS')
-        ORDER BY published_at DESC
-        LIMIT 5`
-    );
+// Notices visible to THIS student only:
+//   • private notices addressed to them (recipient_id = studentId), OR
+//   • public notices with audience ALL/STUDENTS
+const [noticeRows] = await pool.query(
+  `SELECT id, title, audience, recipient_id, published_at
+     FROM notices
+    WHERE status = 'SENT'
+      AND (
+        recipient_id = ?
+        OR (recipient_id IS NULL AND audience IN ('ALL','STUDENTS'))
+      )
+    ORDER BY published_at DESC
+    LIMIT 5`,
+  [studentId]
+);
 
     res.json({
       success: true,
@@ -165,23 +172,42 @@ export async function getAttendance(req, res, next) {
     const studentId = req.user.id;
     const enrollment = await getEnrollment(studentId);
 
+    // ─── Overall monthly summary (current month) ─────
     const [summaryRows] = await pool.query(
       `SELECT
          COUNT(*)                 AS total,
          SUM(status='PRESENT')    AS present,
          SUM(status='LATE')       AS late,
-         SUM(status='ABSENT')     AS absent
+         SUM(status='ABSENT')     AS absent,
+         SUM(status='LEAVE')      AS leave_count
        FROM attendance
        WHERE student_id = ?
          AND YEAR(attendance_date)  = YEAR(CURDATE())
          AND MONTH(attendance_date) = MONTH(CURDATE())`,
       [studentId]
     );
-    const summary = summaryRows[0] || { total: 0, present: 0, late: 0, absent: 0 };
+    const summary = summaryRows[0] || { total: 0, present: 0, late: 0, absent: 0, leave_count: 0 };
     const pct = Number(summary.total) > 0
       ? Math.round((Number(summary.present) / Number(summary.total)) * 1000) / 10
       : 0;
 
+    // ─── Subject-wise totals (this academic year) ─────
+    const [subjectTotals] = await pool.query(
+      `SELECT s.id AS subject_id, s.name AS subject, s.code,
+              COUNT(*) AS total,
+              SUM(a.status='PRESENT') AS present,
+              SUM(a.status='LATE')    AS late,
+              SUM(a.status='ABSENT')  AS absent,
+              SUM(a.status='LEAVE')   AS leave_count
+         FROM attendance a
+         JOIN subjects s ON s.id = a.subject_id
+        WHERE a.student_id = ?
+        GROUP BY s.id, s.name, s.code
+        ORDER BY s.name`,
+      [studentId]
+    );
+
+    // ─── History (last 30) ─────────────────────────────
     const [historyRows] = await pool.query(
       `SELECT a.attendance_date, a.status,
               s.name AS subject,
@@ -196,6 +222,7 @@ export async function getAttendance(req, res, next) {
       [studentId]
     );
 
+    // ─── Weekly timetable snapshot ─────────────────────
     let weekTimetable = [];
     if (enrollment) {
       const [ttRows] = await pool.query(
@@ -216,6 +243,7 @@ export async function getAttendance(req, res, next) {
       data: {
         enrollment,
         summary: { ...summary, pct, requirement: 90 },
+        subjectTotals,
         history: historyRows,
         weekTimetable
       }
@@ -317,7 +345,7 @@ export async function getFees(req, res, next) {
     const studentId = req.user.id;
 
     const [invoiceRows] = await pool.query(
-      `SELECT id, term, fee_head, amount, due_date, status
+      `SELECT id, term, fee_head, amount, amount_paid, due_date, status
          FROM fee_invoices
         WHERE student_id = ?
         ORDER BY due_date IS NULL, due_date, fee_head`,
@@ -326,23 +354,58 @@ export async function getFees(req, res, next) {
 
     const [receiptRows] = await pool.query(
       `SELECT id, receipt_number, amount, payment_method, payment_status,
-              receipt_hash, is_anchored, created_at
+              receipt_hash, is_anchored, created_at, notes
          FROM fee_receipts
         WHERE student_id = ?
         ORDER BY created_at DESC`,
       [studentId]
     );
 
+    const [adjRows] = await pool.query(
+      `SELECT id, type, amount, reason, created_at
+         FROM fee_adjustments
+        WHERE student_id = ?
+        ORDER BY created_at DESC`,
+      [studentId]
+    );
+
     const totalDue = invoiceRows
-      .filter((r) => r.status === 'UNPAID')
-      .reduce((s, r) => s + Number(r.amount), 0);
+      .filter((r) => r.status !== 'PAID')
+      .reduce((s, r) => s + (Number(r.amount) - Number(r.amount_paid)), 0);
+
+    const adjTotals = adjRows.reduce((acc, a) => {
+      acc[a.type] = (acc[a.type] || 0) + Number(a.amount);
+      return acc;
+    }, { FINE: 0, DISCOUNT: 0, ADDITIONAL: 0 });
+
+    const netDue = Math.max(
+      0,
+      totalDue + adjTotals.FINE + adjTotals.ADDITIONAL - adjTotals.DISCOUNT
+    );
+
+    // Payment type: was the student's last payment partial/full/advance?
+    // Advance = payment exceeded outstanding at time of payment (we approximate:
+    // sum(payments) > sum(invoices fully settled))
+    const totalInvoiced = invoiceRows.reduce((s, r) => s + Number(r.amount), 0);
+    const totalPaid = receiptRows.reduce((s, r) => s + Number(r.amount), 0);
+    const paymentTrend = totalPaid > totalInvoiced ? 'ADVANCE'
+                       : totalPaid === 0 ? 'NONE'
+                       : 'PARTIAL_OR_FULL';
 
     res.json({
       success: true,
       data: {
         invoices: invoiceRows,
         receipts: receiptRows,
-        totalDue
+        adjustments: adjRows,
+        totalDue,
+        netDue,
+        adjustmentTotals: adjTotals,
+        summary: {
+          totalInvoiced,
+          totalPaid,
+          paymentTrend
+        }
       }
     });
   } catch (err) {
@@ -381,56 +444,131 @@ export async function getReceipt(req, res, next) {
 
 /**
  * POST /api/student/fees/pay
- * Mock payment. Body: { method }
+ * Body: { amount, method }
+ *
+ * Supports:
+ *   • Partial payment (amount < outstanding)
+ *   • Full payment (amount == outstanding)
+ *   • Advance payment (amount > outstanding) — extra kept as credit
+ *   • Offline methods (Cash/Cheque/Bank slip) → PENDING receipt,
+ *     invoices NOT marked paid until accounts confirms
+ *   • Online methods (eSewa/Khalti/Bank transfer) → PAID receipt immediately
  */
 export async function payFees(req, res, next) {
   const conn = await pool.getConnection();
   try {
     const studentId = req.user.id;
-    const method = String(req.body?.method || '').trim();
-    const allowed = ['eSewa', 'Khalti', 'Bank transfer'];
-    if (!allowed.includes(method)) {
+    const { amount, method } = req.body;
+
+    const amt = Number(amount);
+    if (!amt || amt <= 0) {
+      conn.release();
+      return res.status(400).json({ success: false, message: 'Amount must be positive' });
+    }
+
+    const OFFLINE = ['Cash', 'Cheque', 'Bank slip'];
+    const ONLINE  = ['eSewa', 'Khalti', 'Bank transfer'];
+    const ALL = [...ONLINE, ...OFFLINE];
+
+    if (!ALL.includes(method)) {
       conn.release();
       return res.status(400).json({ success: false, message: 'Invalid payment method' });
     }
 
-    await conn.beginTransaction();
+    const isOffline = OFFLINE.includes(method);
 
+    // Current outstanding
     const [rows] = await conn.query(
-      `SELECT COALESCE(SUM(amount), 0) AS due
+      `SELECT COALESCE(SUM(amount - amount_paid), 0) AS due
          FROM fee_invoices
-        WHERE student_id = ? AND status = 'UNPAID'`,
+        WHERE student_id = ? AND status IN ('UNPAID','PARTIAL')`,
       [studentId]
     );
-    const amount = Number(rows[0].due);
-    if (amount <= 0) {
-      await conn.rollback();
+    const totalDue = Number(rows[0].due);
+
+    if (totalDue === 0 && !isOffline) {
       conn.release();
       return res.status(400).json({ success: false, message: 'No outstanding dues' });
     }
 
+    await conn.beginTransaction();
+
     const receiptNumber = `RCPT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const status = isOffline ? 'PENDING' : 'PAID';
+    const note = isOffline
+      ? 'Student-initiated offline payment — awaiting accounts confirmation'
+      : null;
+
     const [ins] = await conn.query(
       `INSERT INTO fee_receipts
-         (receipt_number, student_id, amount, payment_status, payment_method)
-       VALUES (?, ?, ?, 'PAID', ?)`,
-      [receiptNumber, studentId, amount, method]
+         (receipt_number, student_id, amount, payment_status, payment_method, notes)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [receiptNumber, studentId, amt, status, method, note]
     );
     const receiptId = ins.insertId;
 
-    await conn.query(
-      `UPDATE fee_invoices SET status = 'PAID'
-        WHERE student_id = ? AND status = 'UNPAID'`,
-      [studentId]
-    );
+    let invoicesFullyPaid = 0;
+    let invoicesPartiallyPaid = 0;
+    let remaining = amt;
+
+    // Only allocate against invoices for ONLINE payments
+    if (!isOffline) {
+      const [invoices] = await conn.query(
+        `SELECT id, amount, amount_paid
+           FROM fee_invoices
+          WHERE student_id = ? AND status IN ('UNPAID','PARTIAL')
+          ORDER BY due_date IS NULL, due_date, id`,
+        [studentId]
+      );
+
+      for (const inv of invoices) {
+        if (remaining <= 0) break;
+        const owed = Number(inv.amount) - Number(inv.amount_paid);
+        if (owed <= 0) continue;
+
+        if (remaining >= owed) {
+          await conn.query(
+            `UPDATE fee_invoices SET amount_paid = amount, status = 'PAID' WHERE id = ?`,
+            [inv.id]
+          );
+          remaining -= owed;
+          invoicesFullyPaid++;
+        } else {
+          await conn.query(
+            `UPDATE fee_invoices SET amount_paid = amount_paid + ?, status = 'PARTIAL' WHERE id = ?`,
+            [remaining, inv.id]
+          );
+          remaining = 0;
+          invoicesPartiallyPaid++;
+        }
+      }
+    }
 
     await conn.commit();
     conn.release();
 
+    const parts = [];
+    if (invoicesFullyPaid > 0)  parts.push(`${invoicesFullyPaid} invoice${invoicesFullyPaid === 1 ? '' : 's'} paid`);
+    if (invoicesPartiallyPaid > 0) parts.push(`${invoicesPartiallyPaid} partially paid`);
+    if (remaining > 0 && !isOffline) parts.push(`NPR ${remaining.toLocaleString('en-IN')} kept as credit`);
+
+    const message = isOffline
+      ? 'Offline payment recorded — awaiting confirmation from the accounts office'
+      : `Payment recorded${parts.length ? '. ' + parts.join(', ') + '.' : '.'}`;
+
     res.json({
       success: true,
-      message: 'Payment recorded',
-      data: { receiptId, receiptNumber, amount, method }
+      message,
+      data: {
+        receiptId,
+        receiptNumber,
+        amount: amt,
+        method,
+        status,
+        invoicesFullyPaid,
+        invoicesPartiallyPaid,
+        credit: isOffline ? 0 : remaining
+      }
     });
   } catch (err) {
     try { await conn.rollback(); } catch { /* ignore */ }
@@ -447,7 +585,8 @@ export async function getCertificates(req, res, next) {
   try {
     const studentId = req.user.id;
     const [rows] = await pool.query(
-      `SELECT id, credential_uuid, title, issue_date, document_hash, is_anchored, created_at
+      `SELECT id, credential_uuid, verify_code, title, issue_date,
+              document_hash, is_anchored, created_at
          FROM academic_credentials
         WHERE student_id = ?
         ORDER BY issue_date DESC`,
@@ -465,7 +604,7 @@ export async function getCertificate(req, res, next) {
     const { uuid } = req.params;
 
     const [rows] = await pool.query(
-      `SELECT c.id, c.credential_uuid, c.title, c.issue_date,
+      `SELECT c.id, c.credential_uuid, c.verify_code, c.title, c.issue_date,
               c.document_hash, c.is_anchored,
               u.full_name AS student_name, u.school_id_number,
               cl.name AS class_name
@@ -486,7 +625,6 @@ export async function getCertificate(req, res, next) {
     next(err);
   }
 }
-
 /* ═══════════════════════════════════════════════════════════════
    LIBRARY
    ═══════════════════════════════════════════════════════════════ */
@@ -744,4 +882,196 @@ export async function search(req, res, next) {
   } catch (err) {
     next(err);
   }
+}
+
+/**
+ * GET /api/student/attendance/calendar?month=YYYY-MM
+ * Returns day-by-day status for one month + subject-wise totals.
+ * If a day has multiple subject rows, we merge into a single day
+ * status: if ANY subject is ABSENT → ABSENT; else if ANY LATE → LATE;
+ * else if ANY PRESENT → PRESENT; else if all LEAVE → LEAVE; else NO_DATA.
+ */
+export async function getAttendanceCalendar(req, res, next) {
+  try {
+    const studentId = req.user.id;
+    const monthParam = req.query.month || new Date().toISOString().slice(0, 7);
+
+    if (!/^\d{4}-\d{2}$/.test(monthParam)) {
+      return res.status(400).json({ success: false, message: 'month must be YYYY-MM' });
+    }
+
+    const [y, m] = monthParam.split('-').map(Number);
+    const firstDay = new Date(y, m - 1, 1);
+    const lastDay  = new Date(y, m, 0);
+
+    const [rows] = await pool.query(
+      `SELECT attendance_date, status,
+              s.name AS subject,
+              s.id AS subject_id
+         FROM attendance a
+         LEFT JOIN subjects s ON s.id = a.subject_id
+        WHERE a.student_id = ?
+          AND YEAR(a.attendance_date) = ?
+          AND MONTH(a.attendance_date) = ?
+        ORDER BY a.attendance_date, s.name`,
+      [studentId, y, m]
+    );
+
+    // Group by day
+    const byDay = {};
+    for (const r of rows) {
+      const key = String(r.attendance_date).slice(0, 10);
+      if (!byDay[key]) byDay[key] = [];
+      byDay[key].push(r);
+    }
+
+    function pickDayStatus(statuses) {
+      if (statuses.includes('ABSENT'))  return 'ABSENT';
+      if (statuses.includes('LATE'))    return 'LATE';
+      if (statuses.includes('PRESENT')) return 'PRESENT';
+      if (statuses.every((s) => s === 'LEAVE')) return 'LEAVE';
+      return 'NO_DATA';
+    }
+
+    const days = [];
+    const totalDaysInMonth = lastDay.getDate();
+    for (let d = 1; d <= totalDaysInMonth; d++) {
+      const date = new Date(y, m - 1, d);
+      const key = date.toISOString().slice(0, 10);
+      const dow = date.getDay(); // 0=Sun, 6=Sat
+
+      const entries = byDay[key] || [];
+      const statuses = entries.map((e) => e.status);
+      const status = entries.length === 0
+        ? (dow === 0 || dow === 6 ? 'HOLIDAY' : 'NO_DATA')
+        : pickDayStatus(statuses);
+
+      days.push({
+        date: key,
+        day: d,
+        dow,
+        status,
+        hasData: entries.length > 0,
+        subjects: entries.map((e) => ({ subject: e.subject, status: e.status }))
+      });
+    }
+
+    // Month summary
+    const statusCount = { PRESENT: 0, ABSENT: 0, LATE: 0, LEAVE: 0, NO_DATA: 0, HOLIDAY: 0 };
+    for (const d of days) statusCount[d.status] = (statusCount[d.status] || 0) + 1;
+
+    // Subject-wise totals (whole academic year up to now)
+    const [subjectTotals] = await pool.query(
+      `SELECT s.id AS subject_id, s.name AS subject, s.code,
+              COUNT(*) AS total,
+              SUM(a.status='PRESENT') AS present,
+              SUM(a.status='LATE')    AS late,
+              SUM(a.status='ABSENT')  AS absent,
+              SUM(a.status='LEAVE')   AS leave_count
+         FROM attendance a
+         JOIN subjects s ON s.id = a.subject_id
+        WHERE a.student_id = ?
+        GROUP BY s.id, s.name, s.code
+        ORDER BY s.name`,
+      [studentId]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        month: monthParam,
+        days,
+        monthSummary: statusCount,
+        subjectTotals
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/student/exams
+ * All exams the student has marks for, grouped.
+ * Each exam includes all subjects (across the exam).
+ * Returns exams sorted newest first.
+ */
+/**
+ * GET /api/student/exams
+ * Groups marks by exam_name so one exam (e.g. "Mid-term 2083")
+ * shows ALL subjects together. Also infers the exam type from its name.
+ */
+export async function getAllExams(req, res, next) {
+  try {
+    const studentId = req.user.id;
+
+    const [rows] = await pool.query(
+      `SELECT e.id AS exam_row_id, e.name AS exam_name,
+              e.exam_date, e.full_marks,
+              s.name AS subject, s.code AS subject_code,
+              m.marks_obtained, m.grade, m.submitted_at
+         FROM exam_marks m
+         JOIN exams    e ON e.id = m.exam_id
+         JOIN subjects s ON s.id = e.subject_id
+        WHERE m.student_id = ? AND m.submitted_at IS NOT NULL
+        ORDER BY e.exam_date ASC, e.id, s.name`,
+      [studentId]
+    );
+
+    // Group by exam_name — one exam = many subjects
+    const byName = {};
+    for (const r of rows) {
+      const key = r.exam_name;
+      if (!byName[key]) {
+        byName[key] = {
+          exam_name: r.exam_name,
+          exam_date: r.exam_date,
+          exam_type: inferExamType(r.exam_name),
+          subjects: []
+        };
+      }
+      byName[key].subjects.push({
+        subject: r.subject,
+        subject_code: r.subject_code,
+        full_marks: Number(r.full_marks),
+        marks_obtained: Number(r.marks_obtained),
+        grade: r.grade
+      });
+    }
+
+    // Compute aggregate per exam
+    const exams = Object.values(byName).map((ex) => {
+      const totalFull = ex.subjects.reduce((s, r) => s + r.full_marks, 0);
+      const totalObt  = ex.subjects.reduce((s, r) => s + r.marks_obtained, 0);
+      const pct = totalFull > 0 ? Math.round((totalObt / totalFull) * 1000) / 10 : 0;
+      return {
+        ...ex,
+        totalFull,
+        totalObtained: totalObt,
+        aggregate: pct,
+        grade: gradeFromPct(pct)
+      };
+    });
+
+    // Newest first for the report-card switcher
+    exams.sort((a, b) => new Date(b.exam_date) - new Date(a.exam_date));
+
+    res.json({ success: true, data: { exams } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Nepal-common exam type inference from name.
+ * Doesn't require a schema change.
+ */
+function inferExamType(name) {
+  const n = (name || '').toLowerCase();
+  if (n.includes('internal'))                        return 'Internal';
+  if (n.includes('monthly') || n.includes('unit'))   return 'Monthly';
+  if (n.includes('mid'))                             return 'Mid-Term';
+  if (n.includes('pre-board') || n.includes('preboard')) return 'Pre-Board';
+  if (n.includes('final') || n.includes('annual'))   return 'Final';
+  return 'Assessment';
 }

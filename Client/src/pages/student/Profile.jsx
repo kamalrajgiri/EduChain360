@@ -4,7 +4,12 @@ import Spinner from '../../components/Spinner.jsx';
 import Avatar from '../../components/Avatar.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import client from '../../api/client.js';
-import { updateProfile, changePassword, uploadPhoto, removePhoto } from '../../api/student.js';
+import {
+  updateProfile,
+  changePassword,
+  uploadPhoto,
+  removePhoto
+} from '../../api/auth.js';
 
 /* ─── Change-password modal ─────────────────────────────── */
 
@@ -131,7 +136,7 @@ function ChangePasswordModal({ open, onClose }) {
   );
 }
 
-/* ─── Main profile page ─────────────────────────────────── */
+/* ─── Main page ─────────────────────────────────────────── */
 
 export default function StudentProfile() {
   const { user, updateUser } = useAuth();

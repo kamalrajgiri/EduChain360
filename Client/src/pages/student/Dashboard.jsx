@@ -16,11 +16,11 @@ const DAY_LABEL = {
 
 function Kpi({ label, value, hint, tone = 'primary', icon }) {
   const toneMap = {
-    primary:   'bg-primary-subtle text-primary',
+    primary: 'bg-primary-subtle text-primary',
     secondary: 'bg-secondary-subtle text-secondary',
-    warning:   'bg-status-pending/10 text-status-pending',
-    success:   'bg-status-verified/10 text-status-verified',
-    danger:    'bg-status-tampered/10 text-status-tampered'
+    warning: 'bg-status-pending/10 text-status-pending',
+    success: 'bg-status-verified/10 text-status-verified',
+    danger: 'bg-status-tampered/10 text-status-tampered'
   };
   return (
     <div className="bg-surface border border-border rounded-2xl p-5">
@@ -121,7 +121,11 @@ export default function StudentDashboard() {
             <Kpi
               label="Certificates issued"
               value={data.certificates.count}
-              hint="All blockchain-verified"
+              hint={
+                data.certificates.count > 0
+                  ? "Ready for blockchain anchoring"
+                  : "None issued yet"
+              }
               tone="secondary"
               icon="CE"
             />
