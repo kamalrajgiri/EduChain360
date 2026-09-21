@@ -1,36 +1,35 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
 
-import AdminSidebar from "./AdminSidebar";
-import AdminHeader from "./AdminHeader";
+import AdminSidebar from "./AdminSidebar.jsx";
+import AdminTopbar from "./AdminTopbar.jsx";
 
-function AdminLayout() {
-
-  const [sidebarOpen, setSidebarOpen] =
-    useState(false);
+export default function AdminLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="admin-shell">
-
+    <div className="min-h-screen bg-background text-text-main">
       <AdminSidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((value) => !value)}
       />
 
-      <div className="admin-main">
-
-        <AdminHeader
-          onMenu={() => setSidebarOpen(true)}
+      <div
+        className={`min-h-screen transition-[padding] duration-200 ${
+          sidebarCollapsed ? "lg:pl-[78px]" : "lg:pl-[260px]"
+        }`}
+      >
+        <AdminTopbar
+          onMenuClick={() => setSidebarOpen(true)}
         />
 
-        <main className="page-content">
+        <main className="min-h-[calc(100vh-64px)] px-4 py-5 sm:px-6 lg:px-7">
           <Outlet />
         </main>
-
       </div>
-
     </div>
   );
 }
-
-export default AdminLayout;

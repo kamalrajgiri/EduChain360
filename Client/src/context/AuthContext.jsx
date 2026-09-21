@@ -1,6 +1,11 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import * as authApi from '../api/auth.js';
-import { getToken, setToken, clearToken } from '../api/client.js';
+import {
+  AUTH_UNAUTHORIZED_EVENT,
+  getToken,
+  setToken,
+  clearToken,
+} from '../api/client.js';
 
 const AuthContext = createContext(null);
 
@@ -28,6 +33,12 @@ export function AuthProvider({ children }) {
     }
     bootstrap();
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const handleUnauthorized = () => setUser(null);
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
   }, []);
 
   const login = useCallback(async (identifier, password) => {

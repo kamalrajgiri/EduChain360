@@ -8,11 +8,16 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "jest",
+    "seed": "node src/utils/demos/seed.js",
+    "seed:student": "node src/utils/demos/seed-student.js",
+    "seed:admin": "node src/utils/seedAdmin.js",
     "bootstrap": "node src/utils/bootstrap.js",
     "test:users": "node src/utils/test-users.js",
     "demo:seed": "node src/utils/demo/seed-all.js"
+
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

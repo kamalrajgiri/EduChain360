@@ -3,6 +3,8 @@ import { pool } from '../config/db.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-me';
+
 function signToken(user) {
   return jwt.sign(
     {
@@ -12,7 +14,7 @@ function signToken(user) {
       email: user.email,
       school_id_number: user.school_id_number
     },
-    process.env.JWT_SECRET,
+    JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
 }

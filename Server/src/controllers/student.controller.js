@@ -671,10 +671,8 @@ export async function getLibrary(req, res, next) {
 export async function getNotices(req, res, next) {
   try {
     const [rows] = await pool.query(
-      `SELECT id, title, message, audience, published_at
+      `SELECT id, title, message, audience, recipient_id, published_at
          FROM notices
-        WHERE status = 'SENT'
-          AND audience IN ('ALL','STUDENTS')
         ORDER BY published_at DESC`
     );
     res.json({ success: true, data: rows });
@@ -688,12 +686,9 @@ export async function getNotice(req, res, next) {
     const noticeId = Number(req.params.id);
 
     const [rows] = await pool.query(
-      `SELECT id, title, message, audience, published_at,
-              (SELECT full_name FROM users WHERE id = published_by) AS published_by_name
+      `SELECT id, title, message, audience, recipient_id, published_at
          FROM notices
         WHERE id = ?
-          AND status = 'SENT'
-          AND audience IN ('ALL','STUDENTS')
         LIMIT 1`,
       [noticeId]
     );
@@ -844,11 +839,9 @@ export async function search(req, res, next) {
     );
 
     const [notices] = await pool.query(
-      `SELECT id, title, audience, published_at
+      `SELECT id, title, message, audience, recipient_id, published_at
          FROM notices
-        WHERE status = 'SENT'
-          AND audience IN ('ALL','STUDENTS')
-          AND (title LIKE ? OR message LIKE ?)
+        WHERE title LIKE ? OR message LIKE ?
         ORDER BY published_at DESC
         LIMIT 5`,
       [like, like]

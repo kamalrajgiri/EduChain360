@@ -80,9 +80,9 @@ async function ensureNotice(n, adminId) {
   const [r] = await pool.query('SELECT id FROM notices WHERE title = ? LIMIT 1', [n.title]);
   if (r.length) return;
   await pool.query(
-    `INSERT INTO notices (title, message, audience, published_by, status)
-     VALUES (?, ?, ?, ?, 'SENT')`,
-    [n.title, n.message, n.audience, adminId]
+    `INSERT INTO notices (title, message, audience)
+     VALUES (?, ?, ?)`,
+    [n.title, n.message, n.audience]
   );
 }
 

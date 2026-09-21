@@ -132,6 +132,111 @@
   animation: dropdown 150ms ease-out;
 }
 
+@layer components {
+  .dashboard-card { @apply overflow-hidden rounded-2xl border border-border bg-surface shadow-sm; }
+  .card-header { @apply flex items-start justify-between gap-4 border-b border-border px-5 py-4; }
+  .card-header h3 { @apply text-sm font-bold text-text-main; }
+  .card-header p { @apply mt-1 text-xs text-text-muted; }
+  .stats-grid { @apply mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4; }
+  .stats-grid.compact { @apply xl:grid-cols-4; }
+  .dashboard-grid { @apply mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,.8fr)]; }
+  .large-card { @apply min-w-0; }
+  .primary-button, .secondary-button, .success-button, .warning-button, .danger-button { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
+  .primary-button { @apply bg-primary text-white shadow-sm hover:bg-primary-hover; }
+  .secondary-button { @apply border border-secondary bg-secondary-subtle text-secondary hover:bg-secondary-light; }
+  .success-button { @apply bg-status-verified text-white hover:opacity-90; }
+  .warning-button { @apply bg-status-pending text-white hover:opacity-90; }
+  .danger-button { @apply bg-status-tampered text-white hover:opacity-90; }
+  .full-button { @apply mt-4 w-full; }
+  .text-button { @apply inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold text-primary hover:bg-primary-subtle; }
+  .toolbar { @apply flex flex-wrap items-center justify-between gap-3 border-b border-border p-4; }
+  .table-search { @apply flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-text-muted sm:max-w-sm; }
+  .table-search input { @apply min-w-0 flex-1 bg-transparent text-sm text-text-main outline-none placeholder:text-text-muted; }
+  .filter-select { @apply rounded-xl border border-border bg-background px-3 py-2 text-xs text-text-main outline-none focus:border-primary; }
+  .table-wrapper { @apply overflow-x-auto; }
+  .admin-table { @apply min-w-[720px] w-full border-collapse text-left text-xs; }
+  .admin-table th { @apply whitespace-nowrap border-b border-border bg-background px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted; }
+  .admin-table td { @apply border-b border-border/70 px-4 py-3 text-text-muted; }
+  .admin-table tr:last-child td { @apply border-b-0; }
+  .admin-table td strong { @apply block font-bold text-text-main; }
+  .table-action { @apply grid h-8 w-8 place-items-center rounded-lg border border-border text-text-muted hover:border-primary hover:bg-primary-subtle hover:text-primary; }
+  .empty-table { @apply py-12 text-center text-text-muted; }
+  .mini-stat { @apply rounded-2xl border border-border bg-surface p-4 shadow-sm; }
+  .mini-stat strong { @apply block text-2xl font-bold text-primary; }
+  .mini-stat span { @apply mt-1 block text-xs text-text-muted; }
+  .table-user { @apply flex items-center gap-3; }
+  .table-avatar, .profile-large-avatar { @apply grid shrink-0 place-items-center rounded-full bg-primary-subtle font-bold text-primary; }
+  .table-avatar { @apply h-9 w-9 text-xs; }
+  .table-user span { @apply mt-1 block text-[10px] text-text-muted; }
+  .form-grid { @apply grid grid-cols-1 gap-4 sm:grid-cols-2; }
+  .form-group { @apply mb-4; }
+  .form-group label { @apply mb-1.5 block text-xs font-bold text-text-main; }
+  .form-group input, .form-group select { @apply w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-text-main outline-none focus:border-primary focus:ring-2 focus:ring-primary/10; }
+  .profile-grid, .profile-bottom-grid, .settings-grid { @apply grid grid-cols-1 gap-6 xl:grid-cols-2; }
+  .profile-card { @apply flex flex-col items-center p-8 text-center; }
+  .profile-large-avatar { @apply mb-4 h-24 w-24 text-2xl; }
+  .profile-card h2 { @apply text-xl font-bold text-text-main; }
+  .profile-role { @apply mb-3 mt-1 text-sm text-text-muted; }
+  .profile-photo-button { @apply mt-5; }
+  .settings-row { @apply flex items-center justify-between gap-4 border-b border-border py-4 text-sm text-text-muted last:border-0; }
+  .settings-row strong { @apply text-right text-xs text-text-main; }
+  .toggle { @apply relative inline-flex cursor-pointer items-center; }
+  .toggle { @apply relative; }
+  .toggle input { @apply sr-only; }
+  .toggle span { @apply block h-6 w-11 rounded-full bg-border transition-colors; }
+  .toggle span::after { content: ''; @apply absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition-transform; }
+  .toggle input:checked + span { @apply bg-primary; }
+  .toggle input:checked + span::after { @apply translate-x-5; }
+  .notification-list { @apply divide-y divide-border; }
+  .notification-item { @apply flex items-start gap-3 p-5 transition-colors hover:bg-primary-subtle/40; }
+  .notification-item.unread { @apply bg-primary-subtle/30; }
+  .notification-icon, .blockchain-icon { @apply grid shrink-0 place-items-center rounded-xl bg-primary-subtle text-primary; }
+  .notification-icon { @apply h-9 w-9; }
+  .notification-content { @apply min-w-0 flex-1; }
+  .notification-content strong { @apply block text-sm text-text-main; }
+  .notification-content p { @apply mt-1 text-xs text-text-muted; }
+  .notification-content span { @apply mt-2 block text-[10px] text-text-muted; }
+  .settings-grid > .dashboard-card, .profile-bottom-grid > .dashboard-card { @apply p-5; }
+  .analytics-bars { @apply space-y-5 p-5; }
+  .analytics-bar-item > div:first-child { @apply mb-2 flex items-center justify-between text-xs text-text-muted; }
+  .analytics-bar-item strong { @apply text-text-main; }
+  .progress-track { @apply h-2 overflow-hidden rounded-full bg-primary-light; }
+  .progress-fill { @apply h-full rounded-full bg-secondary transition-all; }
+  .blockchain-status { @apply flex flex-wrap items-center gap-4 p-5; }
+  .blockchain-status h3 { @apply text-sm font-bold text-text-main; }
+  .blockchain-status p { @apply mt-1 text-xs text-text-muted; }
+  .hash-text { @apply max-w-[180px] truncate font-mono text-[10px]; }
+  .health-list, .system-info, .notice-list { @apply divide-y divide-border px-5; }
+  .health-item, .system-info > div, .notice-item { @apply flex items-center justify-between gap-4 py-4; }
+  .health-item > div:first-child { @apply flex items-center gap-2 text-xs text-text-muted; }
+  .health-dot { @apply h-2 w-2 rounded-full bg-status-verified; }
+  .system-info { @apply grid grid-cols-2 gap-4 divide-y-0 border-t border-border; }
+  .system-info > div { @apply block; }
+  .system-info span { @apply block text-xs text-text-muted; }
+  .system-info strong { @apply mt-1 block text-lg text-text-main; }
+  .notice-item { @apply items-start; }
+  .notice-icon { @apply grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary-subtle text-primary; }
+  .notice-item strong { @apply text-sm text-text-main; }
+  .notice-item p { @apply mt-1 text-xs text-text-muted; }
+  .notice-item > span { @apply shrink-0 text-[10px] text-text-muted; }
+  .bar-chart { @apply flex h-64 items-end gap-3 px-5 pb-5 pt-6 sm:gap-5; }
+  .chart-column { @apply flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2; }
+  .chart-value { @apply text-[10px] font-bold text-text-muted; }
+  .chart-track { @apply flex h-full w-full max-w-10 items-end rounded-t-lg bg-primary-subtle; }
+  .chart-bar { @apply w-full rounded-t-lg bg-secondary transition-all; }
+  .chart-column > span { @apply text-[10px] text-text-muted; }
+  .attendance-circle { @apply mx-auto mt-5 grid h-36 w-36 place-items-center rounded-full border-[12px] border-primary-light; }
+  .attendance-circle strong { @apply block text-center text-2xl font-bold text-primary; }
+  .attendance-circle span { @apply block text-center text-[10px] text-text-muted; }
+  .attendance-summary { @apply grid grid-cols-3 gap-2 p-5 text-xs text-text-muted; }
+  .attendance-summary > div { @apply flex flex-col items-center gap-1; }
+  .attendance-summary strong { @apply text-sm text-text-main; }
+  .legend-dot { @apply h-2 w-2 rounded-full; }
+  .legend-dot.present { @apply bg-status-verified; }
+  .legend-dot.late { @apply bg-status-pending; }
+  .legend-dot.absent { @apply bg-status-tampered; }
+}
+
 /* Respect user's motion preferences */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

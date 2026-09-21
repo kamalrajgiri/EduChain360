@@ -1,66 +1,52 @@
-import React from "react";
-
-import {
-  TrendingUp,
-  TrendingDown
-} from "lucide-react";
-
-function StatCard({
+export default function StatCard({
   title,
   value,
-  change,
   description,
-  type = "blue"
+  icon: Icon,
+  trend,
+  trendType = "positive",
 }) {
-
-  const negative =
-    change?.startsWith("-");
-
   return (
-    <article className="stat-card">
+    <div className="dashboard-card p-5 transition-shadow hover:shadow-md">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+            {title}
+          </p>
 
-      <div
-        className={`stat-icon ${type}`}
-      >
-        <div />
-      </div>
-
-      <div className="stat-content">
-
-        <span>
-          {title}
-        </span>
-
-        <h3>
-          {value}
-        </h3>
-
-        <div
-          className={`stat-change ${
-            negative ? "negative" : ""
-          }`}
-        >
-
-          {negative ? (
-            <TrendingDown size={12} />
-          ) : (
-            <TrendingUp size={12} />
-          )}
-
-          <b>
-            {change}
-          </b>
-
-          <small>
-            {description}
-          </small>
-
+          <p className="mt-2 text-2xl font-bold tracking-tight text-text-main">
+            {value}
+          </p>
         </div>
 
+        {Icon && (
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-subtle text-primary">
+            <Icon size={19} />
+          </div>
+        )}
       </div>
 
-    </article>
+      <div className="mt-4 flex items-center gap-2">
+        {trend && (
+          <span
+            className={`rounded-md px-1.5 py-1 text-[9px] font-bold ${
+              trendType === "positive"
+                ? "bg-green-50 text-success"
+                : trendType === "negative"
+                ? "bg-red-50 text-danger"
+                : "bg-amber-50 text-warning"
+            }`}
+          >
+            {trend}
+          </span>
+        )}
+
+        {description && (
+          <span className="text-[10px] text-text-muted">
+            {description}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
-
-export default StatCard;

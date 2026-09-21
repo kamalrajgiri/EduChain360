@@ -1,84 +1,192 @@
-import React from "react";
+import { useEffect, useState } from "react";
+import {
+  CircleDollarSign,
+  CreditCard,
+  ReceiptText,
+  TrendingUp,
+} from "lucide-react";
 
-import PageHeader from "../../components/admin/PageHeader";
+import PageHeader from "../../components/admin/PageHeader.jsx";
+import StatCard from "../../components/admin/StatCard.jsx";
+import StatusBadge from "../../components/admin/StatusBadge.jsx";
+import SectionCard from "../../components/admin/SectionCard.jsx";
+import { adminApi } from "../../api/adminApi.js";
 
-function Finance() {
+export default function Finance() {
+  const [data, setData] = useState({});
+
+  useEffect(() => {
+    adminApi
+      .getFinance()
+      .then(setData)
+      .catch(console.error);
+  }, []);
+
+  const stats = data?.stats || {};
 
   return (
-    <>
-
+    <div>
       <PageHeader
-        eyebrow="FINANCE"
-        title="Finance administration"
-        description="Centralized visibility into student fees, payments, receipts and financial records."
+        title="Finance"
+        subtitle="Monitor fee collection, payments, outstanding balances and revenue."
       />
 
-      <div className="module-grid">
+      <div className="stats-grid">
+        <StatCard
+          title="Total Revenue"
+          value={stats.revenue ?? "—"}
+          description="Current academic year"
+          icon={CircleDollarSign}
+          trend={stats.revenueTrend}
+        />
 
-        <article className="module-card">
-          <div className="module-icon">
-            FS
-          </div>
-          <h3>
-            Fee Structure
-          </h3>
-          <p>
-            Configure program and semester-wise fees.
-          </p>
-          <button className="text-button">
-            Manage →
-          </button>
-        </article>
+        <StatCard
+          title="Collected"
+          value={stats.collected ?? "—"}
+          description="Successful payments"
+          icon={CreditCard}
+        />
 
-        <article className="module-card">
-          <div className="module-icon">
-            PY
-          </div>
-          <h3>
-            Payments
-          </h3>
-          <p>
-            Monitor student payment activity.
-          </p>
-          <button className="text-button">
-            Manage →
-          </button>
-        </article>
+        <StatCard
+          title="Outstanding"
+          value={stats.outstanding ?? "—"}
+          description="Pending student fees"
+          icon={ReceiptText}
+          trendType="negative"
+        />
 
-        <article className="module-card">
-          <div className="module-icon">
-            RC
-          </div>
-          <h3>
-            Receipts
-          </h3>
-          <p>
-            View and verify financial receipts.
-          </p>
-          <button className="text-button">
-            Manage →
-          </button>
-        </article>
-
-        <article className="module-card">
-          <div className="module-icon">
-            RP
-          </div>
-          <h3>
-            Reports
-          </h3>
-          <p>
-            Generate collection and outstanding reports.
-          </p>
-          <button className="text-button">
-            Manage →
-          </button>
-        </article>
-
+        <StatCard
+          title="Growth"
+          value={stats.growth ?? "—"}
+          description="Compared with previous period"
+          icon={TrendingUp}
+        />
       </div>
 
-    </>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)]">
+        <SectionCard
+          title="Monthly Revenue"
+          subtitle="Revenue collected during the current period."
+        >
+          <div className="bar-chart">
+            {(data.monthly || []).map((item) => {
+              const max = Math.max(
+                ...(data.monthly || []).map(
+                  (x) => Number(x.value) || 0
+                ),
+                1
+              );
+
+              const height =
+                ((Number(item.value) || 0) / max) *
+                100;
+
+              return (
+                <div
+                  key={item.label}
+                  className="chart-column"
+                >
+                  <span className="chart-value">
+                    {item.value}
+                  </span>
+
+                  <div className="chart-track">
+                    <div
+                      className="chart-bar"
+                      style={{
+                        height: `${Math.max(
+                          height,
+                          5
+                        )}%`,
+                      }}
+                    />
+                  </div>
+
+                  <span>{item.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Fee Collection"
+          subtitle="Collection status."
+        >
+          <div className="p-5">
+            <div className="mb-6 text-center">
+              <p className="text-3xl font-bold text-primary">
+                {stats.collectionRate ?? "—"}
+              </p>
+
+              <p className="mt-1 text-[10px] text-text-muted">
+                Collection rate
+              </p>
+            </div>
+
+            <div className="h-3 overflow-hidden rounded-full bg-primary-light">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{
+                  width:
+                    stats.collectionRatePercent ||
+                    "0%",
+                }}
+              />
+            </div>
+          </div>
+        </SectionCard>
+      </div>
+
+      <div className="mt-6">
+        <SectionCard
+          title="Recent Payments"
+          subtitle="Latest transactions."
+        >
+          <div className="table-wrapper">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Invoice</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {(data.payments || []).map(
+                  (payment) => (
+                    <tr key={payment.id}>
+                      <td>
+                        <strong>
+                          {payment.student}
+                        </strong>
+                        <span>
+                          {payment.student_id}
+                        </span>
+                      </td>
+
+                      <td>{payment.invoice}</td>
+                      <td>{payment.amount}</td>
+                      <td>{payment.date}</td>
+
+                      <td>
+                        <StatusBadge
+                          status={
+                            payment.status || "Paid"
+                          }
+                        />
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      </div>
+    </div>
   );
 }
-
-export default Finance;

@@ -63,6 +63,166 @@ CREATE TABLE IF NOT EXISTS classes (
   INDEX idx_classes_year (academic_year)
 );
 
+ALTER TABLE users
+  ADD COLUMN avatar_data MEDIUMTEXT NULL AFTER id_card_photo_url;
+
+CREATE TABLE IF NOT EXISTS users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    contact_no VARCHAR(30),
+    role VARCHAR(30) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    status VARCHAR(30) DEFAULT 'Active',
+    last_login DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS admissions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    application_no VARCHAR(50) NOT NULL UNIQUE,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL,
+    contact_no VARCHAR(30),
+    program VARCHAR(150) NOT NULL,
+    applied_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(30) DEFAULT 'Pending'
+);
+
+CREATE TABLE IF NOT EXISTS departments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(150) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS programs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(200) NOT NULL,
+    department_id INT,
+    students INT DEFAULT 0,
+    FOREIGN KEY (department_id)
+        REFERENCES departments(id)
+        ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS courses (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    code VARCHAR(30),
+    name VARCHAR(200),
+    program_id INT
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    student_id INT,
+    amount DECIMAL(12,2) NOT NULL,
+    method VARCHAR(50),
+    status VARCHAR(30) DEFAULT 'Completed',
+    payment_date DATE DEFAULT (CURRENT_DATE),
+    FOREIGN KEY (student_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS books (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    author VARCHAR(200),
+    category VARCHAR(100),
+    total_copies INT DEFAULT 1,
+    available_copies INT DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS book_transactions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    book_id INT,
+    student_id INT,
+    issue_date DATE,
+    due_date DATE,
+    status VARCHAR(30) DEFAULT 'Issued',
+    FOREIGN KEY (book_id)
+        REFERENCES books(id)
+        ON DELETE SET NULL,
+    FOREIGN KEY (student_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS employees (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    department VARCHAR(100),
+    position VARCHAR(100),
+    email VARCHAR(150),
+    status VARCHAR(30) DEFAULT 'Active'
+);
+
+CREATE TABLE IF NOT EXISTS employee_attendance (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    employee_id INT,
+    attendance_date DATE,
+    status VARCHAR(30),
+    FOREIGN KEY (employee_id)
+        REFERENCES employees(id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS attendance_records (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    student_id INT,
+    attendance_date DATE,
+    status VARCHAR(30),
+    FOREIGN KEY (student_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS notices (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  audience ENUM('ALL','STUDENTS','PARENTS','STAFF','TEACHERS','APPLICANTS') DEFAULT 'ALL',
+  recipient_id INT NULL,
+  published_by INT NULL,
+  published_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  status ENUM('DRAFT','SENT') DEFAULT 'SENT',
+  FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (published_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_notices_published (published_at),
+  INDEX idx_notices_recipient (recipient_id)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255),
+    message TEXT,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS blockchain_records (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    record_id VARCHAR(100),
+    record_type VARCHAR(100),
+    hash VARCHAR(255),
+    block_number BIGINT,
+    status VARCHAR(30) DEFAULT 'Verified',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS system_settings (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    university_name VARCHAR(255),
+    university_email VARCHAR(255),
+    academic_session VARCHAR(50),
+    two_factor BOOLEAN DEFAULT TRUE,
+    login_notifications BOOLEAN DEFAULT TRUE,
+    admission_notifications BOOLEAN DEFAULT TRUE,
+    finance_notifications BOOLEAN DEFAULT TRUE
+  );
+
 -- ─── 5. Subjects ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS subjects (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -162,22 +322,6 @@ CREATE TABLE IF NOT EXISTS timetable_entries (
   FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL,
   INDEX idx_tt_class_day (class_id, day_of_week),
   INDEX idx_tt_teacher_day (teacher_id, day_of_week)
-);
-
--- ─── 12. Notices (private-capable) ────────────────────────────
-CREATE TABLE IF NOT EXISTS notices (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  title VARCHAR(200) NOT NULL,
-  message TEXT NOT NULL,
-  audience ENUM('ALL','STUDENTS','PARENTS','STAFF','TEACHERS','APPLICANTS') DEFAULT 'ALL',
-  recipient_id INT NULL,
-  published_by INT NULL,
-  published_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  status ENUM('DRAFT','SENT') DEFAULT 'SENT',
-  FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (published_by) REFERENCES users(id) ON DELETE SET NULL,
-  INDEX idx_notices_published (published_at DESC),
-  INDEX idx_notices_recipient (recipient_id)
 );
 
 -- ─── 13. Academic credentials ─────────────────────────────────

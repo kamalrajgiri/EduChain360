@@ -1,163 +1,183 @@
-import React from "react";
+import { useEffect, useState } from "react";
+import {
+  Blocks,
+  CheckCircle2,
+  Database,
+  RefreshCw,
+  ShieldCheck,
+} from "lucide-react";
 
-import PageHeader from "../../components/admin/PageHeader";
-import StatusBadge from "../../components/admin/StatusBadge";
+import PageHeader from "../../components/admin/PageHeader.jsx";
+import StatCard from "../../components/admin/StatCard.jsx";
+import StatusBadge from "../../components/admin/StatusBadge.jsx";
+import SectionCard from "../../components/admin/SectionCard.jsx";
+import { adminApi } from "../../api/adminApi.js";
 
-function Blockchain() {
+export default function Blockchain() {
+  const [data, setData] = useState({});
+  const [refreshing, setRefreshing] = useState(false);
 
-  const records = [
-    {
-      id: "BC-009214",
-      type: "Certificate",
-      owner: "Rajan Thapa",
-      date: "Sep 06, 2026"
-    },
-    {
-      id: "BC-009213",
-      type: "Fee Receipt",
-      owner: "Anisha Joshi",
-      date: "Sep 06, 2026"
-    },
-    {
-      id: "BC-009212",
-      type: "Transcript",
-      owner: "Sujata Bhandari",
-      date: "Sep 05, 2026"
+  const load = async () => {
+    try {
+      setRefreshing(true);
+
+      const response =
+        await adminApi.getBlockchain();
+
+      setData(response);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setRefreshing(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const stats = data.stats || {};
 
   return (
-    <>
-
+    <div>
       <PageHeader
-        eyebrow="BLOCKCHAIN VERIFY"
-        title="Trusted records"
-        description="Monitor blockchain-anchored university records and verify their integrity."
+        title="Blockchain"
+        subtitle="Monitor ledger connectivity, verification and immutable university records."
         action={
-          <button className="primary-button">
-            Verify record
+          <button
+            type="button"
+            onClick={load}
+            disabled={refreshing}
+            className="secondary-button"
+          >
+            <RefreshCw
+              size={14}
+              className={
+                refreshing ? "animate-spin" : ""
+              }
+            />
+            Refresh
           </button>
         }
       />
 
-      <div className="insight-grid">
+      <div className="stats-grid">
+        <StatCard
+          title="Verified Records"
+          value={stats.verified ?? "—"}
+          description="Immutable records"
+          icon={CheckCircle2}
+        />
 
-        <div className="insight-card">
-          <span>
-            Anchored records
-          </span>
-          <strong>
-            9,214
-          </strong>
-          <small>
-            100% integrity verified
-          </small>
-        </div>
+        <StatCard
+          title="Ledger Entries"
+          value={stats.entries ?? "—"}
+          description="Total blockchain entries"
+          icon={Blocks}
+        />
 
-        <div className="insight-card">
-          <span>
-            Latest block
-          </span>
-          <strong>
-            #8791
-          </strong>
-          <small>
-            Confirmed
-          </small>
-        </div>
+        <StatCard
+          title="Network"
+          value={stats.network ?? "—"}
+          description="Connected network"
+          icon={Database}
+        />
 
-        <div className="insight-card">
-          <span>
-            Verification requests
-          </span>
-          <strong>
-            1,204
-          </strong>
-          <small>
-            This term
-          </small>
-        </div>
-
+        <StatCard
+          title="Integrity"
+          value={stats.integrity ?? "—"}
+          description="Ledger integrity"
+          icon={ShieldCheck}
+        />
       </div>
 
-      <section className="card">
+      <SectionCard
+        title="Blockchain Network"
+        subtitle="Current ledger connection and verification status."
+      >
+        <div className="blockchain-status">
+          <div className="blockchain-icon h-14 w-14">
+            <Blocks size={25} />
+          </div>
 
-        <div className="card-header">
-
-          <div>
+          <div className="flex-1">
             <h3>
-              Recent blockchain records
+              {data.network?.name ||
+                "EduChain360 Blockchain"}
             </h3>
 
             <p>
-              Immutable verification references
+              {data.network?.description ||
+                "Blockchain infrastructure status."}
+            </p>
+
+            <p className="mt-2 font-mono text-[10px] text-text-muted">
+              {data.network?.endpoint ||
+                "Endpoint configured on server"}
             </p>
           </div>
 
+          <StatusBadge
+            status={
+              data.network?.status || "Verified"
+            }
+          />
         </div>
+      </SectionCard>
 
-        <div className="table-wrapper">
+      <div className="mt-6">
+        <SectionCard
+          title="Recent Ledger Records"
+          subtitle="Recent blockchain-backed university records."
+        >
+          <div className="table-wrapper">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Record</th>
+                  <th>Type</th>
+                  <th>Hash</th>
+                  <th>Created</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
 
-          <table>
+              <tbody>
+                {(data.records || []).map(
+                  (record) => (
+                    <tr key={record.id}>
+                      <td>
+                        <strong>
+                          {record.record_id}
+                        </strong>
+                      </td>
 
-            <thead>
+                      <td>{record.type}</td>
 
-              <tr>
-                <th>Record ID</th>
-                <th>Type</th>
-                <th>Owner</th>
-                <th>Date</th>
-                <th>Status</th>
-              </tr>
+                      <td>
+                        <span className="hash-text">
+                          {record.hash}
+                        </span>
+                      </td>
 
-            </thead>
+                      <td>{record.created_at}</td>
 
-            <tbody>
-
-              {records.map(
-                (record) => (
-
-                  <tr key={record.id}>
-
-                    <td>
-                      <strong>
-                        {record.id}
-                      </strong>
-                    </td>
-
-                    <td>
-                      {record.type}
-                    </td>
-
-                    <td>
-                      {record.owner}
-                    </td>
-
-                    <td>
-                      {record.date}
-                    </td>
-
-                    <td>
-                      <StatusBadge>
-                        Verified
-                      </StatusBadge>
-                    </td>
-
-                  </tr>
-
-                )
-              )}
-
-            </tbody>
-
-          </table>
-
-        </div>
-
-      </section>
-
-    </>
+                      <td>
+                        <StatusBadge
+                          status={
+                            record.status ||
+                            "Verified"
+                          }
+                        />
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      </div>
+    </div>
   );
 }
-
-export default Blockchain;

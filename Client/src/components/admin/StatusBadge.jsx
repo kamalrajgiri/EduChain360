@@ -1,54 +1,31 @@
-import React from "react";
+const statusStyles = {
+  Approved: "bg-green-50 text-success",
+  Active: "bg-green-50 text-success",
+  Verified: "bg-green-50 text-success",
+  Completed: "bg-green-50 text-success",
+  Paid: "bg-green-50 text-success",
 
-function StatusBadge({
-  children
-}) {
+  Pending: "bg-amber-50 text-warning",
+  Processing: "bg-amber-50 text-warning",
+  "Under Review": "bg-amber-50 text-warning",
 
-  const value =
-    String(children).toLowerCase();
+  Rejected: "bg-red-50 text-danger",
+  Inactive: "bg-red-50 text-danger",
+  Failed: "bg-red-50 text-danger",
 
-  let type = "neutral";
+  Blockchain: "bg-secondary-subtle text-secondary",
+  Neutral: "bg-background text-text-muted",
+};
 
-  if (
-    [
-      "active",
-      "verified",
-      "ready",
-      "paid",
-      "healthy"
-    ].includes(value)
-  ) {
-    type = "success";
-  }
-
-  if (
-    [
-      "pending",
-      "processing",
-      "review"
-    ].includes(value)
-  ) {
-    type = "warning";
-  }
-
-  if (
-    [
-      "inactive",
-      "failed",
-      "tampered",
-      "unpaid"
-    ].includes(value)
-  ) {
-    type = "danger";
-  }
+export default function StatusBadge({ status }) {
+  const style =
+    statusStyles[status] || statusStyles.Neutral;
 
   return (
     <span
-      className={`status-badge ${type}`}
+      className={`inline-flex items-center rounded-full px-2 py-1 text-[9px] font-bold ${style}`}
     >
-      {children}
+      {status}
     </span>
   );
 }
-
-export default StatusBadge;
