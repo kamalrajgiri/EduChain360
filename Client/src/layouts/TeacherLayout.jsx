@@ -1,3 +1,4 @@
+// Client/src/layouts/TeacherLayout.jsx
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,

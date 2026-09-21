@@ -1,299 +1,390 @@
-import { useEffect, useState } from "react";
-import { CalendarDays, Save, Plus, Trash2 } from "lucide-react";
+import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import { useFetch } from '../../hooks/useFetch.js';
+import { getMyClasses, getClassDetail, getAttendance, saveAttendance } from '../../api/teacher.js';
+import { SkeletonTable } from '../../components/Skeleton.jsx';
+import ErrorState from '../../components/ErrorState.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
 
-// Mock classes — replace with a fetch to your classes API once ready.
-const CLASSES = [
-  { id: "11-sci-a", name: "Grade 11 Science A", subject: "Physics" },
-  { id: "11-sci-b", name: "Grade 11 Science B", subject: "Physics" },
-  { id: "10-a", name: "Grade 10 A", subject: "Science" },
-  { id: "10-b", name: "Grade 10 B", subject: "Science" },
+const STATUS_OPTIONS = [
+  { value: 'PRESENT', label: 'P',  full: 'Present', color: 'bg-status-verified text-text-inverse',  ring: 'ring-status-verified' },
+  { value: 'ABSENT',  label: 'A',  full: 'Absent',  color: 'bg-status-tampered text-text-inverse',  ring: 'ring-status-tampered' },
+  { value: 'LATE',    label: 'L',  full: 'Late',    color: 'bg-status-pending text-text-inverse',   ring: 'ring-status-pending' },
+  { value: 'LEAVE',   label: 'Lv', full: 'Leave',   color: 'bg-primary text-text-inverse',          ring: 'ring-primary' }
 ];
 
-// Field names follow ER diagram's STUDENT (student_id, roll_number) / USER (name).
-// This is the default/seed roster — anything a teacher adds gets merged in and
-// persisted separately so it survives reloads without touching this constant.
-const DEFAULT_ROSTERS = {
-  "11-sci-a": [
-    { student_id: 1, roll_number: "01", name: "Anisha Joshi" },
-    { student_id: 2, roll_number: "02", name: "Bikash Rawal" },
-    { student_id: 3, roll_number: "03", name: "Rajan Thapa" },
-    { student_id: 4, roll_number: "04", name: "Priya Chand" },
-    { student_id: 5, roll_number: "05", name: "Manish Bohara" },
-    { student_id: 6, roll_number: "06", name: "Sujata Bhandari" },
-  ],
-  "11-sci-b": [
-    { student_id: 7, roll_number: "01", name: "Kritika Adhikari" },
-    { student_id: 8, roll_number: "02", name: "Suman Karki" },
-    { student_id: 9, roll_number: "03", name: "Nabin Shrestha" },
-  ],
-  "10-a": [
-    { student_id: 10, roll_number: "01", name: "Aayush Basnet" },
-    { student_id: 11, roll_number: "02", name: "Kabita Rana" },
-  ],
-  "10-b": [
-    { student_id: 12, roll_number: "01", name: "Dipesh Oli" },
-    { student_id: 13, roll_number: "02", name: "Reema Gurung" },
-  ],
-};
-
-const STORAGE_KEY = "educhain360_attendance";
-const ROSTERS_KEY = "educhain360_rosters";
-
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function loadAllRecords() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-  } catch {
-    return {};
-  }
+function initialsOf(name) {
+  if (!name) return 'ST';
+  return name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
 }
 
-function saveAllRecords(records) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-}
+export default function TeacherAttendance() {
+  const [searchParams, setSearchParams] = useSearchParams();
 
-// TODO: once the backend is ready, this becomes a fetch to your STUDENT
-// endpoint filtered by class, and addStudent becomes a POST to create one.
-function loadRosters() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(ROSTERS_KEY));
-    return saved || DEFAULT_ROSTERS;
-  } catch {
-    return DEFAULT_ROSTERS;
-  }
-}
+  const classesFetch = useFetch(() => getMyClasses(), []);
+  const classes = classesFetch.data || [];
 
-function saveRosters(rosters) {
-  localStorage.setItem(ROSTERS_KEY, JSON.stringify(rosters));
-}
-
-export default function Attendance() {
-  const [classId, setClassId] = useState(CLASSES[0].id);
+  const [classId, setClassId] = useState(searchParams.get('class') || '');
+  const [subjectId, setSubjectId] = useState('');
   const [date, setDate] = useState(todayISO());
-  const [status, setStatus] = useState({});
-  const [saved, setSaved] = useState(false);
-  const [rosters, setRosters] = useState(loadRosters);
-  const [addingStudent, setAddingStudent] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newRoll, setNewRoll] = useState("");
 
-  const roster = rosters[classId] || [];
-  const recordKey = `${classId}_${date}`;
+  const [statusMap, setStatusMap] = useState({});
+  const [loadingRoster, setLoadingRoster] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState({ type: '', msg: '' });
 
-  // Load whatever was saved for this class + date, or default everyone present.
+  // Auto-select first class when list arrives
   useEffect(() => {
-    const allRecords = loadAllRecords();
-    const existing = allRecords[recordKey];
-    if (existing) {
-      setStatus(existing);
-    } else {
-      setStatus(Object.fromEntries(roster.map((s) => [s.student_id, "present"])));
+    if (!classId && classes.length > 0) {
+      setClassId(String(classes[0].id));
     }
-    setSaved(false);
-    setAddingStudent(false);
+  }, [classes, classId]);
+
+  // Sync class to URL so links from ClassDetail preselect correctly
+  useEffect(() => {
+    if (classId) {
+      const next = new URLSearchParams(searchParams);
+      next.set('class', classId);
+      setSearchParams(next, { replace: true });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classId, date]);
+  }, [classId]);
 
-  function toggle(studentId) {
-    setStatus((prev) => ({
-      ...prev,
-      [studentId]: prev[studentId] === "present" ? "absent" : "present",
-    }));
+  const detailFetch = useFetch(
+    classId ? () => getClassDetail(classId) : null,
+    [classId]
+  );
+
+  const subjects = detailFetch.data?.subjects || [];
+  const roster = detailFetch.data?.roster || [];
+
+  // Auto-select first subject
+  useEffect(() => {
+    if (subjects.length > 0 && !subjectId) {
+      setSubjectId(String(subjects[0].id));
+    }
+    if (subjects.length > 0 && subjectId && !subjects.find((s) => String(s.id) === subjectId)) {
+      setSubjectId(String(subjects[0].id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subjects]);
+
+  // Load existing attendance when class+subject+date changes
+  useEffect(() => {
+    if (!classId || !subjectId || !date) return;
+    let cancelled = false;
+    setLoadingRoster(true);
+    (async () => {
+      try {
+        const res = await getAttendance({
+          class_id: Number(classId),
+          subject_id: Number(subjectId),
+          date
+        });
+        if (cancelled) return;
+        const init = {};
+        for (const s of res.roster) {
+          init[s.student_id] = res.saved[s.student_id] || 'PRESENT';
+        }
+        setStatusMap(init);
+      } catch {
+        if (!cancelled) setStatusMap({});
+      } finally {
+        if (!cancelled) setLoadingRoster(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [classId, subjectId, date]);
+
+  useEffect(() => {
+    if (!toast.msg) return;
+    const t = setTimeout(() => setToast({ type: '', msg: '' }), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  function setStatus(studentId, status) {
+    setStatusMap((prev) => ({ ...prev, [studentId]: status }));
   }
 
-  // TODO: once the backend is ready, this becomes a POST to create a STUDENT
-  // row (roll_number, name) scoped to this class/section.
-  function handleAddStudent() {
-    if (!newName.trim()) return;
-
-    const nextRoll =
-      newRoll.trim() || String(roster.length + 1).padStart(2, "0");
-    const newStudent = {
-      student_id: `local-${Date.now()}`,
-      roll_number: nextRoll,
-      name: newName.trim(),
-    };
-
-    const updatedRosters = {
-      ...rosters,
-      [classId]: [...roster, newStudent],
-    };
-    setRosters(updatedRosters);
-    saveRosters(updatedRosters);
-
-    // New student defaults to present for whichever date is currently open.
-    setStatus((prev) => ({ ...prev, [newStudent.student_id]: "present" }));
-
-    setNewName("");
-    setNewRoll("");
-    setAddingStudent(false);
+  function markAll(status) {
+    const next = {};
+    for (const s of roster) next[s.student_id] = status;
+    setStatusMap(next);
   }
 
-  function handleRemoveStudent(studentId) {
-    const updatedRosters = {
-      ...rosters,
-      [classId]: roster.filter((s) => s.student_id !== studentId),
-    };
-    setRosters(updatedRosters);
-    saveRosters(updatedRosters);
-    setStatus((prev) => {
-      const next = { ...prev };
-      delete next[studentId];
-      return next;
-    });
+  async function handleSave() {
+    if (!classId || !subjectId || !date) return;
+    setSaving(true);
+    try {
+      const entries = roster.map((s) => ({
+        student_id: s.student_id,
+        status: statusMap[s.student_id] || 'PRESENT'
+      }));
+      const res = await saveAttendance({
+        class_id: Number(classId),
+        subject_id: Number(subjectId),
+        date,
+        entries
+      });
+      setToast({ type: 'success', msg: res.message || 'Attendance saved' });
+    } catch (e) {
+      setToast({ type: 'error', msg: e.response?.data?.message || 'Failed to save' });
+    } finally {
+      setSaving(false);
+    }
   }
 
-  // TODO: once the backend is ready, POST one ATTENDANCE row per student —
-  // { student_id, att_date: date, status } — instead of writing to localStorage.
-  function handleSave() {
-    const allRecords = loadAllRecords();
-    allRecords[recordKey] = status;
-    saveAllRecords(allRecords);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
+  const currentClass = classes.find((c) => String(c.id) === classId);
+  const currentSubject = subjects.find((s) => String(s.id) === subjectId);
 
-  const currentClass = CLASSES.find((c) => c.id === classId);
+  const summary = useMemo(() => {
+    const counts = { PRESENT: 0, ABSENT: 0, LATE: 0, LEAVE: 0 };
+    for (const s of roster) {
+      const st = statusMap[s.student_id] || 'PRESENT';
+      counts[st] = (counts[st] || 0) + 1;
+    }
+    return counts;
+  }, [roster, statusMap]);
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold text-navy-900 dark:text-white mb-1">
-        Attendance
-      </h1>
-      <p className="text-gray-500 dark:text-white/60 text-sm mb-5">
-        Take attendance for any class, on any date.
-      </p>
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 mb-5">
-        <select
-          value={classId}
-          onChange={(e) => setClassId(e.target.value)}
-          className="border border-gray-300 dark:border-white/10 dark:bg-navy-800 dark:text-white rounded-md px-3 py-2 text-sm bg-white"
-        >
-          {CLASSES.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name} · {c.subject}
-            </option>
-          ))}
-        </select>
-
-        <div className="flex items-center gap-2 border border-gray-300 dark:border-white/10 rounded-md px-3 py-2 bg-white dark:bg-navy-800">
-          <CalendarDays size={16} className="text-gray-400" />
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            max={todayISO()}
-            className="text-sm bg-transparent focus:outline-none dark:text-white"
-          />
+    <DashboardLayout
+      pageTitle="Attendance"
+      pageSubtitle={currentClass ? `${currentClass.name} · ${date}` : 'Mark daily attendance'}
+    >
+      {/* Toast */}
+      {toast.msg && (
+        <div className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+          toast.type === 'success'
+            ? 'border-status-verified/30 bg-status-verified/5 text-status-verified'
+            : 'border-status-tampered/30 bg-status-tampered/5 text-status-tampered'
+        }`}>
+          {toast.msg}
         </div>
-      </div>
+      )}
 
-      <div className="bg-white dark:bg-navy-800 rounded-xl shadow-sm p-5">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-navy-900 dark:text-white font-semibold">
-            {currentClass?.name} · {currentClass?.subject}
-          </p>
-          <button
-            onClick={() => setAddingStudent((v) => !v)}
-            className="flex items-center gap-1 text-sm text-indigo-700 hover:underline"
-          >
-            <Plus size={14} /> Add student
-          </button>
-        </div>
-        <p className="text-gray-500 dark:text-white/50 text-sm mb-4">
-          {new Date(date + "T00:00:00").toLocaleDateString(undefined, {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </p>
+      {/* Filter bar */}
+      <div className="bg-surface border border-border rounded-2xl p-4 mb-5 space-y-3">
 
-        {addingStudent && (
-          <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-gray-50 dark:bg-white/5 rounded-md">
-            <input
-              type="text"
-              placeholder="Roll no."
-              value={newRoll}
-              onChange={(e) => setNewRoll(e.target.value)}
-              className="w-20 border border-gray-300 dark:border-white/10 dark:bg-navy-900 dark:text-white rounded-md px-2 py-1.5 text-sm bg-white"
-            />
-            <input
-              type="text"
-              placeholder="Student name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddStudent()}
-              className="flex-1 min-w-[160px] border border-gray-300 dark:border-white/10 dark:bg-navy-900 dark:text-white rounded-md px-2 py-1.5 text-sm bg-white"
-            />
-            <button
-              onClick={handleAddStudent}
-              className="bg-navy-800 hover:bg-navy-700 text-white text-sm font-medium px-3 py-1.5 rounded-md transition-colors"
-            >
-              Add
-            </button>
-            <button
-              onClick={() => setAddingStudent(false)}
-              className="text-sm text-gray-500 dark:text-white/60 px-3 py-1.5"
-            >
-              Cancel
-            </button>
-          </div>
+        {classesFetch.loading && (
+          <p className="text-xs text-text-muted">Loading classes…</p>
         )}
 
-        {roster.map((s) => (
-          <div
-            key={s.student_id}
-            className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-white/10 last:border-0"
-          >
-            <div>
-              <span className="text-gray-500 dark:text-white/50 text-sm mr-3">
-                {s.roll_number}
-              </span>
-              <span className="text-navy-900 dark:text-white font-medium">
-                {s.name}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => toggle(s.student_id)}
-                className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
-                  status[s.student_id] === "present"
-                    ? "bg-success/15 text-success"
-                    : "bg-danger/10 text-danger"
-                }`}
-              >
-                {status[s.student_id] === "present" ? "Present" : "Absent"}
-              </button>
-              <button
-                onClick={() => handleRemoveStudent(s.student_id)}
-                className="text-gray-300 hover:text-danger transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          </div>
-        ))}
+        {!classesFetch.loading && classes.length === 0 && (
+          <p className="text-xs text-text-muted">No classes assigned to you yet.</p>
+        )}
 
-        <button
-          onClick={handleSave}
-          className="mt-5 flex items-center gap-2 bg-navy-800 hover:bg-navy-700 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors"
-        >
-          <Save size={15} />
-          Save attendance
-        </button>
+        {classes.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider text-text-muted font-semibold mb-1.5">
+                  Class
+                </label>
+                <select
+                  value={classId}
+                  onChange={(e) => { setClassId(e.target.value); setSubjectId(''); }}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs
+                             text-text-main focus:outline-none focus:border-primary"
+                >
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} · {c.student_count} students
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-        {saved && (
-          <p className="text-sm text-success mt-3">
-            Saved attendance for {currentClass?.name} on {date}.
-          </p>
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider text-text-muted font-semibold mb-1.5">
+                  Subject
+                </label>
+                <select
+                  value={subjectId}
+                  onChange={(e) => setSubjectId(e.target.value)}
+                  disabled={subjects.length === 0}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs
+                             text-text-main focus:outline-none focus:border-primary disabled:opacity-50"
+                >
+                  {subjects.length === 0 && <option>—</option>}
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider text-text-muted font-semibold mb-1.5">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  max={todayISO()}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs
+                             text-text-main focus:outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+
+            {/* Subject pills for quick switch */}
+            {subjects.length > 1 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {subjects.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSubjectId(String(s.id))}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                      String(s.id) === subjectId
+                        ? 'bg-primary text-text-inverse'
+                        : 'bg-background border border-border text-text-main hover:border-primary'
+                    }`}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
-    </div>
+
+      {detailFetch.loading && <SkeletonTable rows={6} cols={4} />}
+      {!detailFetch.loading && detailFetch.error && (
+        <ErrorState title="Couldn't load class" message={detailFetch.error} onRetry={detailFetch.retry} />
+      )}
+
+      {!detailFetch.loading && !detailFetch.error && currentClass && roster.length === 0 && (
+        <EmptyState
+          icon="👥"
+          title="No students enrolled"
+          message="Once the admin enrolls students in this class, they'll appear here for attendance."
+        />
+      )}
+
+      {!detailFetch.loading && !detailFetch.error && currentClass && roster.length > 0 && (
+        <div className="space-y-4">
+
+          {/* Summary strip */}
+          <div className="grid grid-cols-4 gap-3">
+            <div className="bg-surface border border-border rounded-xl px-4 py-3">
+              <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">Present</p>
+              <p className="text-lg font-bold text-status-verified mt-0.5">{summary.PRESENT || 0}</p>
+            </div>
+            <div className="bg-surface border border-border rounded-xl px-4 py-3">
+              <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">Absent</p>
+              <p className="text-lg font-bold text-status-tampered mt-0.5">{summary.ABSENT || 0}</p>
+            </div>
+            <div className="bg-surface border border-border rounded-xl px-4 py-3">
+              <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">Late</p>
+              <p className="text-lg font-bold text-status-pending mt-0.5">{summary.LATE || 0}</p>
+            </div>
+            <div className="bg-surface border border-border rounded-xl px-4 py-3">
+              <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">Leave</p>
+              <p className="text-lg font-bold text-primary mt-0.5">{summary.LEAVE || 0}</p>
+            </div>
+          </div>
+
+          {/* Roster */}
+          <section className="bg-surface border border-border rounded-2xl overflow-hidden">
+            <header className="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <h2 className="text-sm font-bold text-text-main">
+                  {currentSubject ? currentSubject.name : 'Roster'}
+                </h2>
+                <p className="text-xs text-text-muted">
+                  {roster.length} student{roster.length === 1 ? '' : 's'}
+                  {currentSubject ? ` · ${currentSubject.code}` : ''}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => markAll('PRESENT')}
+                  className="rounded-lg border border-border text-text-main text-xs font-medium px-3 py-1.5
+                             hover:bg-background transition-colors"
+                >
+                  Mark all present
+                </button>
+                <button
+                  onClick={() => markAll('ABSENT')}
+                  className="rounded-lg border border-border text-text-main text-xs font-medium px-3 py-1.5
+                             hover:bg-background transition-colors"
+                >
+                  Mark all absent
+                </button>
+              </div>
+            </header>
+
+            {loadingRoster ? (
+              <div className="p-8 text-center text-sm text-text-muted">Loading attendance…</div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {roster.map((s) => {
+                  const current = statusMap[s.student_id] || 'PRESENT';
+                  return (
+                    <li
+                      key={s.student_id}
+                      className="px-5 py-3 flex items-center gap-3 hover:bg-primary-subtle/30 transition-colors"
+                    >
+                      <span className="text-text-muted font-mono text-xs w-8 shrink-0">
+                        {String(s.roll_number).padStart(2, '0')}
+                      </span>
+                      <div className="h-8 w-8 rounded-full bg-primary text-text-inverse grid place-items-center text-[10px] font-bold shrink-0">
+                        {initialsOf(s.name)}
+                      </div>
+                      <p className="text-sm font-medium text-text-main flex-1 min-w-0 truncate">
+                        {s.name}
+                      </p>
+
+                      {/* Segmented control */}
+                      <div className="flex gap-1 shrink-0">
+                        {STATUS_OPTIONS.map((opt) => {
+                          const active = current === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setStatus(s.student_id, opt.value)}
+                              title={opt.full}
+                              className={`w-8 h-8 rounded-lg text-[11px] font-bold grid place-items-center transition-all ${
+                                active
+                                  ? `${opt.color} shadow-sm`
+                                  : 'bg-background border border-border text-text-muted hover:border-text-muted'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <div className="px-5 py-4 border-t border-border bg-background flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-[11px] text-text-muted">
+                P = Present · A = Absent · L = Late · Lv = Leave
+              </p>
+              <button
+                onClick={handleSave}
+                disabled={saving || loadingRoster}
+                className="rounded-lg bg-primary hover:bg-primary-hover text-text-inverse
+                           text-xs font-semibold px-5 py-2.5 disabled:opacity-60 transition-colors"
+              >
+                {saving ? 'Saving…' : 'Save attendance'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+    </DashboardLayout>
   );
 }

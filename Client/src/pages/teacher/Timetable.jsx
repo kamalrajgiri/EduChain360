@@ -1,56 +1,103 @@
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
-const PERIODS = ["9:00", "10:00", "11:00", "1:00", "2:00"];
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import { useFetch } from '../../hooks/useFetch.js';
+import { getTimetable } from '../../api/teacher.js';
+import { SkeletonCard } from '../../components/Skeleton.jsx';
+import ErrorState from '../../components/ErrorState.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
 
-// Mock — swap for a fetch to /api/timetable once ready.
-const CELLS = {
-  "Sun-9:00": "Grade 11 A · Physics",
-  "Mon-10:00": "Grade 11 B · Physics",
-  "Tue-9:00": "Grade 10 A · Science",
-  "Wed-1:00": "Grade 10 B · Science",
-  "Thu-11:00": "Grade 11 A · Physics",
-};
+const DAY_ORDER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const DAY_LABEL = { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday' };
 
-export default function Timetable() {
+export default function TeacherTimetable() {
+  const { data: entries, loading, error, retry } = useFetch(() => getTimetable(), []);
+
+  const rows = entries || [];
+
+  // Build a matrix: unique time-slots × days
+  const slots = Array.from(new Set(rows.map((r) => `${r.start_time}|${r.end_time}`)))
+    .sort()
+    .map((key) => {
+      const [start, end] = key.split('|');
+      return { start, end, key };
+    });
+
+  function cell(day, slot) {
+    return rows.find(
+      (r) => r.day_of_week === day
+        && String(r.start_time) === slot.start
+        && String(r.end_time) === slot.end
+    );
+  }
+
   return (
-    <div>
-      <h1 className="text-2xl font-semibold text-navy-900 mb-1">Timetable</h1>
-      <p className="text-gray-500 text-sm mb-6">Your weekly class schedule.</p>
+    <DashboardLayout pageTitle="Timetable" pageSubtitle="Your weekly class schedule">
+      {loading && (
+        <div className="space-y-3">
+          <SkeletonCard lines={6} />
+        </div>
+      )}
 
-      <div className="bg-white rounded-xl shadow-sm p-5 overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr>
-              <th className="text-left text-gray-500 font-medium pb-3 pr-4">Time</th>
-              {DAYS.map((d) => (
-                <th key={d} className="text-left text-gray-500 font-medium pb-3 pr-4">
-                  {d}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {PERIODS.map((p) => (
-              <tr key={p} className="border-t border-gray-100">
-                <td className="py-3 pr-4 text-gray-500">{p}</td>
-                {DAYS.map((d) => {
-                  const key = `${d}-${p}`;
-                  return (
-                    <td key={key} className="py-3 pr-4">
-                      {CELLS[key] ? (
-                        <span className="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-1 rounded-md">
-                          {CELLS[key]}
-                        </span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
+      {!loading && error && (
+        <ErrorState title="Couldn't load timetable" message={error} onRetry={retry} />
+      )}
+
+      {!loading && !error && rows.length === 0 && (
+        <EmptyState
+          icon="🗓️"
+          title="No timetable entries yet"
+          message="Once the admin publishes your schedule, it will show up here."
+        />
+      )}
+
+      {!loading && !error && rows.length > 0 && (
+        <section className="bg-surface border border-border rounded-2xl overflow-hidden">
+          <header className="px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-bold text-text-main">Weekly schedule</h2>
+            <p className="text-xs text-text-muted">
+              {rows.length} session{rows.length === 1 ? '' : 's'}
+            </p>
+          </header>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs min-w-[640px]">
+              <thead className="bg-background text-[10px] uppercase tracking-wider text-text-muted">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-semibold w-32">Time</th>
+                  {DAY_ORDER.map((d) => (
+                    <th key={d} className="text-left px-4 py-2.5 font-semibold">{DAY_LABEL[d]}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {slots.map((slot) => (
+                  <tr key={slot.key} className="border-t border-border">
+                    <td className="px-4 py-3 text-text-muted font-mono">
+                      {slot.start.slice(0, 5)}–{slot.end.slice(0, 5)}
                     </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                    {DAY_ORDER.map((d) => {
+                      const e = cell(d, slot);
+                      return (
+                        <td key={d} className="px-4 py-3">
+                          {e ? (
+                            <div className="bg-primary-subtle text-primary rounded-lg px-3 py-2">
+                              <p className="text-[11px] font-semibold truncate">{e.subject}</p>
+                              <p className="text-[10px] opacity-80 truncate">
+                                {e.class_name}{e.room ? ` · ${e.room}` : ''}
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-text-muted/40">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+    </DashboardLayout>
   );
 }

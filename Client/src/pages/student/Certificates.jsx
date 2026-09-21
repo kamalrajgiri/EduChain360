@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
-import Spinner from '../../components/Spinner.jsx';
+import { useFetch } from '../../hooks/useFetch.js';
 import { getCertificates } from '../../api/student.js';
+import { SkeletonCard } from '../../components/Skeleton.jsx';
+import ErrorState from '../../components/ErrorState.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
 
 function fmtDate(d) {
   if (!d) return '—';
@@ -10,55 +12,33 @@ function fmtDate(d) {
 }
 
 export default function StudentCertificates() {
-  const [certs, setCerts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await getCertificates();
-        if (!cancelled) setCerts(res);
-      } catch (err) {
-        if (!cancelled) setError(err.response?.data?.message || 'Failed to load certificates');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  const { data: certs, loading, error, retry } = useFetch(() => getCertificates(), []);
 
   return (
     <DashboardLayout
       pageTitle="My Certificates"
-      pageSubtitle="Blockchain-verified academic credentials"
+      pageSubtitle="Academic credentials issued by your institution"
     >
       {loading && (
-        <div className="py-24 grid place-items-center">
-          <Spinner size="lg" label="Loading certificates..." />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          <SkeletonCard lines={4} />
+          <SkeletonCard lines={4} />
         </div>
       )}
 
-      {error && (
-        <div className="rounded-lg border border-status-tampered/30 bg-status-tampered/5 px-4 py-3 text-sm text-status-tampered">
-          {error}
-        </div>
+      {!loading && error && (
+        <ErrorState title="Couldn't load certificates" message={error} onRetry={retry} />
       )}
 
-      {!loading && !error && certs.length === 0 && (
-        <div className="bg-surface border border-border rounded-2xl p-12 max-w-lg mx-auto text-center">
-          <div className="h-12 w-12 rounded-full bg-primary-subtle text-primary grid place-items-center mx-auto mb-3">
-            <span className="text-xl">🎓</span>
-          </div>
-          <h3 className="text-sm font-bold text-text-main">No certificates issued yet</h3>
-          <p className="text-xs text-text-muted mt-1">
-            Once your institution issues a certificate, it will appear here with a QR code for verification.
-          </p>
-        </div>
+      {!loading && !error && (!certs || certs.length === 0) && (
+        <EmptyState
+          icon="🎓"
+          title="No certificates issued yet"
+          message="Once your institution issues a certificate, it will appear here with a unique verification code."
+        />
       )}
 
-      {!loading && !error && certs.length > 0 && (
+      {!loading && !error && certs && certs.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {certs.map((c) => (
             <Link
@@ -89,7 +69,15 @@ export default function StudentCertificates() {
                 Issued {fmtDate(c.issue_date)}
               </p>
 
-              <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+              {/* Verify code — unique per certificate */}
+              <div className="mt-3 bg-background border border-border rounded-lg px-3 py-2">
+                <p className="text-[9px] uppercase tracking-wider text-text-muted font-semibold">Verify code</p>
+                <p className="text-xs font-mono font-semibold text-primary mt-0.5">
+                  {c.verify_code || '—'}
+                </p>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
                 <span className="text-[10px] font-mono text-text-muted truncate">
                   {c.credential_uuid}
                 </span>

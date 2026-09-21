@@ -1,3 +1,4 @@
+import { FEATURES } from '../config/features.js';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -72,6 +73,7 @@ function SidebarContent({ user, navItems, onLogout, onNavClick }) {
 
       {/* Bottom actions */}
       <div className="p-3 border-t border-white/10 space-y-1.5 shrink-0">
+      {FEATURES.sharedHelp !== false && (
         <NavLink
           to="/help"
           onClick={onNavClick}
@@ -91,6 +93,7 @@ function SidebarContent({ user, navItems, onLogout, onNavClick }) {
           </svg>
           Help & support
         </NavLink>
+        )}
 
         <button
           onClick={onLogout}
@@ -285,11 +288,11 @@ export default function DashboardLayout({ children, pageTitle, pageSubtitle }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 shrink-0">
-            <SearchBox role={user?.role} />
-            <NotificationBell role={user?.role} />
-            <UserMenu />
-          </div>
+<div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 shrink-0">
+  {FEATURES.topbarSearch !== false && <SearchBox role={user?.role} />}
+  {FEATURES.topbarNotifications !== false && <NotificationBell role={user?.role} />}
+  {FEATURES.topbarUserMenu !== false && <UserMenu />}
+</div>
         </header>
 
         <div className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto print:p-0 print:overflow-visible">

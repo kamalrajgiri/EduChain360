@@ -1,453 +1,495 @@
-import { useEffect, useState } from "react";
-import { Plus, Trash2, ArrowLeft, FileSpreadsheet, Save } from "lucide-react";
+import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import { useFetch } from '../../hooks/useFetch.js';
+import {
+  getMyClasses,
+  getClassDetail,
+  getExams,
+  getExamDetailByName,
+  saveExams
+} from '../../api/teacher.js';
+import { SkeletonTable } from '../../components/Skeleton.jsx';
+import ErrorState from '../../components/ErrorState.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
 
-const STORAGE_KEY = "educhain360_marksheets";
-
-function loadMarksheets() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  } catch {
-    return [];
-  }
+function gradeFromPct(pct) {
+  if (pct >= 90) return 'A+';
+  if (pct >= 80) return 'A';
+  if (pct >= 70) return 'B+';
+  if (pct >= 60) return 'B';
+  if (pct >= 50) return 'C';
+  if (pct >= 40) return 'D';
+  return 'F';
 }
 
-function saveMarksheets(sheets) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sheets));
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function emptyMarksheet() {
-  return {
-    id: crypto.randomUUID(),
-    className: "",
-    examName: "",
-    subjects: [{ id: crypto.randomUUID(), name: "Subject 1", fullMarks: 100 }],
-    students: [
-      { student_id: crypto.randomUUID(), roll_number: "01", name: "", marks: {} },
-    ],
-    createdAt: new Date().toISOString(),
-  };
-}
+/* ─── Editor ─────────────────────────────────────────────── */
 
-function gradeFor(percentage) {
-  if (percentage >= 90) return "A+";
-  if (percentage >= 80) return "A";
-  if (percentage >= 70) return "B+";
-  if (percentage >= 60) return "B";
-  if (percentage >= 50) return "C";
-  return "F";
-}
+function MarksheetEditor({ classId, editExamName, onCancel, onSaved }) {
+  const isEditMode = !!editExamName;
 
-export default function ExamsMarks() {
-  const [view, setView] = useState("list"); // "list" | "editor"
-  const [sheets, setSheets] = useState([]);
-  const [draft, setDraft] = useState(null);
+  const [examName, setExamName] = useState(editExamName || '');
+  const [examDate, setExamDate] = useState(todayISO());
+  const [fullMarks, setFullMarks] = useState({});
+  const [marks, setMarks] = useState({});
+  const [prefilled, setPrefilled] = useState(!isEditMode);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
 
+  const detailFetch = useFetch(() => getClassDetail(classId), [classId]);
+  const classSubjects = detailFetch.data?.subjects || [];
+  const roster = detailFetch.data?.roster || [];
+
+  // In edit mode, load existing exam
   useEffect(() => {
-    setSheets(loadMarksheets());
-  }, []);
+    if (!isEditMode) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getExamDetailByName(editExamName, Number(classId));
+        if (cancelled) return;
 
-  function openNew() {
-    setDraft(emptyMarksheet());
-    setView("editor");
+        setExamDate(String(res.exam_date).slice(0, 10));
+
+        const fm = {};
+        for (const s of res.subjects) fm[s.subject_id] = s.full_marks;
+        setFullMarks(fm);
+
+        // Marks come as `${studentId}:${subjectId}` → value
+        const mk = {};
+        for (const [k, v] of Object.entries(res.marks || {})) {
+          mk[k] = v;
+        }
+        setMarks(mk);
+      } catch (e) {
+        if (!cancelled) setErr(e.response?.data?.message || 'Failed to load exam');
+      } finally {
+        if (!cancelled) setPrefilled(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [editExamName, classId, isEditMode]);
+
+  // Default full marks to 100 per subject (new mode only)
+  useEffect(() => {
+    if (isEditMode) return;
+    if (classSubjects.length === 0) return;
+    setFullMarks((prev) => {
+      const next = { ...prev };
+      for (const s of classSubjects) {
+        if (next[s.id] == null) next[s.id] = 100;
+      }
+      return next;
+    });
+  }, [classSubjects, isEditMode]);
+
+  function setMark(studentId, subjectId, value) {
+    const max = Number(fullMarks[subjectId]) || 100;
+    const num = value === '' ? '' : Math.max(0, Math.min(max, Number(value) || 0));
+    setMarks((prev) => ({ ...prev, [`${studentId}:${subjectId}`]: num }));
   }
 
-  function openExisting(sheet) {
-    setDraft(sheet);
-    setView("editor");
+  async function handleSave() {
+    setErr('');
+    if (!examName.trim()) return setErr('Exam name is required');
+    if (!examDate) return setErr('Exam date is required');
+
+    setSaving(true);
+    try {
+      const subjectsPayload = classSubjects.map((sub) => ({
+        subject_id: sub.id,
+        full_marks: Number(fullMarks[sub.id]) || 100,
+        marks: roster.map((st) => ({
+          student_id: st.student_id,
+          marks_obtained: marks[`${st.student_id}:${sub.id}`] ?? ''
+        }))
+      }));
+
+      const res = await saveExams({
+        class_id: Number(classId),
+        exam_name: examName.trim(),
+        exam_date: examDate,
+        subjects: subjectsPayload
+      });
+
+      onSaved(res);
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Failed to save');
+      setSaving(false);
+    }
   }
 
-  function deleteSheet(id) {
-    const updated = sheets.filter((s) => s.id !== id);
-    setSheets(updated);
-    saveMarksheets(updated);
+  const totalFullMarks = useMemo(
+    () => classSubjects.reduce((sum, s) => sum + (Number(fullMarks[s.id]) || 0), 0),
+    [classSubjects, fullMarks]
+  );
+
+  function totalFor(studentId) {
+    let total = 0;
+    for (const s of classSubjects) {
+      const v = Number(marks[`${studentId}:${s.id}`]);
+      if (!Number.isNaN(v)) total += v;
+    }
+    return total;
   }
 
-  // TODO: this writes to localStorage as a mock DB. Once the backend is ready,
-  // POST one RESULT row per (student, subject) — { student_id, marks } — and
-  // let the backend hash + anchor each row, filling in result_id/block_ref.
-  function handleSaveDraft(finalDraft) {
-    const existingIndex = sheets.findIndex((s) => s.id === finalDraft.id);
-    const updated =
-      existingIndex >= 0
-        ? sheets.map((s, i) => (i === existingIndex ? finalDraft : s))
-        : [...sheets, finalDraft];
-    setSheets(updated);
-    saveMarksheets(updated);
-    setView("list");
-  }
-
-  if (view === "editor") {
-    return (
-      <MarksheetEditor
-        draft={draft}
-        onCancel={() => setView("list")}
-        onSave={handleSaveDraft}
-      />
-    );
+  function pctFor(studentId) {
+    if (totalFullMarks === 0) return 0;
+    return (totalFor(studentId) / totalFullMarks) * 100;
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <div>
-          <h1 className="text-2xl font-semibold text-navy-900 dark:text-white">
-            Exams & Marks
-          </h1>
-          <p className="text-gray-500 dark:text-white/60 text-sm">
-            Create and manage marksheets for your classes.
-          </p>
-        </div>
+    <div className="space-y-5">
+
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <button
-          onClick={openNew}
-          className="flex items-center gap-2 bg-navy-800 hover:bg-navy-700 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors"
+          onClick={onCancel}
+          className="text-xs font-medium text-primary hover:text-primary-active"
         >
-          <Plus size={16} />
-          Create marksheet
+          ← Back to marksheets
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saving || !prefilled}
+          className="rounded-lg bg-primary hover:bg-primary-hover text-text-inverse
+                     text-xs font-semibold px-5 py-2.5 disabled:opacity-60 transition-colors"
+        >
+          {saving ? 'Saving…' : (isEditMode ? 'Update marksheet' : 'Save marksheet')}
         </button>
       </div>
 
-      {sheets.length === 0 ? (
-        <div className="bg-white dark:bg-navy-800 rounded-xl shadow-sm p-10 mt-6 text-center">
-          <FileSpreadsheet size={32} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-500 dark:text-white/50 text-sm">
-            No marksheets yet. Create one to get started.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
-          {sheets.map((s) => (
-            <div
-              key={s.id}
-              className="bg-white dark:bg-navy-800 rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-navy-900 dark:text-white font-semibold">
-                    {s.examName || "Untitled exam"}
-                  </p>
-                  <p className="text-gray-500 dark:text-white/50 text-sm">
-                    {s.className || "No class set"}
-                  </p>
-                </div>
-                <button
-                  onClick={() => deleteSheet(s.id)}
-                  className="text-gray-300 hover:text-danger transition-colors"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-              <p className="text-indigo-700 dark:text-indigo-100 text-sm font-medium mt-3">
-                {s.subjects.length} subject{s.subjects.length !== 1 && "s"} ·{" "}
-                {s.students.length} student{s.students.length !== 1 && "s"}
-              </p>
-              <button
-                onClick={() => openExisting(s)}
-                className="mt-4 text-sm font-medium text-indigo-700 hover:underline"
-              >
-                Open marksheet →
-              </button>
-            </div>
-          ))}
+      {err && (
+        <div className="rounded-lg border border-status-tampered/30 bg-status-tampered/5 px-4 py-3 text-sm text-status-tampered">
+          {err}
         </div>
       )}
+
+      {/* Exam meta */}
+      <section className="bg-surface border border-border rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-4">
+<h2 className="text-sm font-bold text-text-main">
+  {isEditMode ? 'Editing saved exam' : 'New exam'}
+  {detailFetch.data?.class?.name && (
+    <span className="ml-2 text-[11px] font-normal text-text-muted">
+      · {detailFetch.data.class.name}
+    </span>
+  )}
+</h2>
+          {isEditMode && (
+            <span className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">
+              Reopening · {examName}
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[10px] uppercase tracking-wider text-text-muted font-semibold mb-1.5">
+              Exam name
+            </label>
+            <input
+              type="text"
+              value={examName}
+              onChange={(e) => setExamName(e.target.value)}
+              disabled={isEditMode}
+              placeholder="e.g. Mid-term 2083"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm
+                         text-text-main focus:outline-none focus:border-primary disabled:opacity-60"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] uppercase tracking-wider text-text-muted font-semibold mb-1.5">
+              Exam date
+            </label>
+            <input
+              type="date"
+              value={examDate}
+              onChange={(e) => setExamDate(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm
+                         text-text-main focus:outline-none focus:border-primary"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Full marks per subject */}
+      <section className="bg-surface border border-border rounded-2xl p-5">
+        <h2 className="text-sm font-bold text-text-main mb-3">Full marks per subject</h2>
+        <div className="flex flex-wrap gap-2">
+          {classSubjects.map((s) => (
+            <div key={s.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background border border-border">
+              <span className="text-xs font-medium text-text-main">{s.name}</span>
+              <span className="text-text-muted">/</span>
+              <input
+                type="number"
+                min={1}
+                value={fullMarks[s.id] ?? ''}
+                onChange={(e) => setFullMarks({ ...fullMarks, [s.id]: e.target.value })}
+                className="w-14 bg-transparent text-xs text-text-main focus:outline-none tabular-nums"
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Marks grid */}
+      <section className="bg-surface border border-border rounded-2xl overflow-hidden">
+        <header className="px-5 py-4 border-b border-border">
+          <h2 className="text-sm font-bold text-text-main">Enter marks</h2>
+          <p className="text-xs text-text-muted">
+            {roster.length} student{roster.length === 1 ? '' : 's'} × {classSubjects.length} subject{classSubjects.length === 1 ? '' : 's'}
+            {isEditMode && !prefilled && ' · loading saved marks…'}
+          </p>
+        </header>
+
+        {detailFetch.loading && <div className="p-8"><SkeletonTable rows={5} cols={5} /></div>}
+        {!detailFetch.loading && roster.length === 0 && (
+          <div className="p-8 text-center text-sm text-text-muted">No students in this class.</div>
+        )}
+
+        {!detailFetch.loading && roster.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
+              <thead className="bg-background text-[10px] uppercase tracking-wider text-text-muted">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-semibold sticky left-0 bg-background z-10 w-14">Roll</th>
+                  <th className="text-left px-4 py-2.5 font-semibold sticky left-14 bg-background z-10 min-w-[160px]">
+                    Student
+                  </th>
+                  {classSubjects.map((s) => (
+                    <th key={s.id} className="text-right px-3 py-2.5 font-semibold">
+                      {s.name}
+                      <span className="block text-[9px] text-text-muted/70 font-normal">
+                        /{fullMarks[s.id] || 100}
+                      </span>
+                    </th>
+                  ))}
+                  <th className="text-right px-4 py-2.5 font-semibold">Total</th>
+                  <th className="text-right px-4 py-2.5 font-semibold">%</th>
+                  <th className="text-right px-4 py-2.5 font-semibold">Grade</th>
+                </tr>
+              </thead>
+              <tbody>
+                {roster.map((st) => {
+                  const total = totalFor(st.student_id);
+                  const pct = pctFor(st.student_id);
+                  const filled = classSubjects.some(
+                    (s) => marks[`${st.student_id}:${s.id}`] !== '' && marks[`${st.student_id}:${s.id}`] != null
+                  );
+                  const grade = filled ? gradeFromPct(pct) : '—';
+                  return (
+                    <tr key={st.student_id} className="border-t border-border hover:bg-primary-subtle/30 transition-colors">
+                      <td className="px-4 py-2 sticky left-0 bg-surface z-10 text-text-muted font-mono text-xs">
+                        {String(st.roll_number).padStart(2, '0')}
+                      </td>
+                      <td className="px-4 py-2 sticky left-14 bg-surface z-10 text-text-main font-medium">
+                        {st.name}
+                      </td>
+                      {classSubjects.map((s) => (
+                        <td key={s.id} className="px-3 py-2 text-right">
+                          <input
+                            type="number"
+                            min={0}
+                            max={fullMarks[s.id] || 100}
+                            value={marks[`${st.student_id}:${s.id}`] ?? ''}
+                            onChange={(e) => setMark(st.student_id, s.id, e.target.value)}
+                            className="w-16 rounded-lg border border-border bg-background px-2 py-1.5 text-xs
+                                       text-text-main text-right tabular-nums
+                                       focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                          />
+                        </td>
+                      ))}
+                      <td className="px-4 py-2 text-right text-text-main font-semibold tabular-nums">
+                        {total}/{totalFullMarks}
+                      </td>
+                      <td className="px-4 py-2 text-right text-text-muted tabular-nums">
+                        {filled ? `${pct.toFixed(1)}%` : '—'}
+                      </td>
+                      <td className="px-4 py-2 text-right font-semibold text-primary">{grade}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="px-5 py-4 border-t border-border bg-background flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-[11px] text-text-muted">
+            Marks are auto-graded. Saving updates the exam and each student's report.
+          </p>
+          <button
+            onClick={handleSave}
+            disabled={saving || detailFetch.loading || roster.length === 0 || !prefilled}
+            className="rounded-lg bg-primary hover:bg-primary-hover text-text-inverse
+                       text-xs font-semibold px-5 py-2.5 disabled:opacity-60 transition-colors"
+          >
+            {saving ? 'Saving…' : (isEditMode ? 'Update marksheet' : 'Save marksheet')}
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
 
-function MarksheetEditor({ draft, onCancel, onSave }) {
-  const [sheet, setSheet] = useState(draft);
+/* ─── Main page ─────────────────────────────────────────── */
 
-  function updateField(field, value) {
-    setSheet((prev) => ({ ...prev, [field]: value }));
+export default function TeacherExamsMarks() {
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState('list');
+  const [editorClassId, setEditorClassId] = useState(null);
+  const [editExamName, setEditExamName] = useState(null);   // NEW
+  const [toast, setToast] = useState({ type: '', msg: '' });
+
+  const classesFetch = useFetch(() => getMyClasses(), []);
+  const examsFetch = useFetch(() => getExams(), []);
+
+  const classes = classesFetch.data || [];
+  const exams = examsFetch.data?.exams || [];
+
+  // Auto-open editor if ?class= is in URL
+  useEffect(() => {
+    const cid = searchParams.get('class');
+    if (cid && mode === 'list') {
+      setEditorClassId(Number(cid));
+      setMode('editor');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!toast.msg) return;
+    const t = setTimeout(() => setToast({ type: '', msg: '' }), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  function openNew(classId) {
+    setEditorClassId(classId);
+    setEditExamName(null);
+    setMode('editor');
   }
 
-  function addSubject() {
-    setSheet((prev) => ({
-      ...prev,
-      subjects: [
-        ...prev.subjects,
-        {
-          id: crypto.randomUUID(),
-          name: `Subject ${prev.subjects.length + 1}`,
-          fullMarks: 100,
-        },
-      ],
-    }));
+  function openExisting(exam) {
+    setEditorClassId(exam.class_id);
+    setEditExamName(exam.exam_name);
+    setMode('editor');
   }
-
-  function updateSubject(id, field, value) {
-    setSheet((prev) => ({
-      ...prev,
-      subjects: prev.subjects.map((sub) =>
-        sub.id === id
-          ? { ...sub, [field]: field === "fullMarks" ? Number(value) || 0 : value }
-          : sub
-      ),
-    }));
-  }
-
-  function removeSubject(id) {
-    setSheet((prev) => ({
-      ...prev,
-      subjects: prev.subjects.filter((sub) => sub.id !== id),
-    }));
-  }
-
-  function addStudent() {
-    setSheet((prev) => ({
-      ...prev,
-      students: [
-        ...prev.students,
-        {
-          student_id: crypto.randomUUID(),
-          roll_number: String(prev.students.length + 1).padStart(2, "0"),
-          name: "",
-          marks: {},
-        },
-      ],
-    }));
-  }
-
-  function updateStudent(studentId, field, value) {
-    setSheet((prev) => ({
-      ...prev,
-      students: prev.students.map((s) =>
-        s.student_id === studentId ? { ...s, [field]: value } : s
-      ),
-    }));
-  }
-
-  function updateMark(studentId, subjectId, value) {
-    const subject = sheet.subjects.find((sub) => sub.id === subjectId);
-    const max = subject?.fullMarks ?? 100;
-    const marks = Math.max(0, Math.min(max, Number(value) || 0));
-    setSheet((prev) => ({
-      ...prev,
-      students: prev.students.map((s) =>
-        s.student_id === studentId
-          ? { ...s, marks: { ...s.marks, [subjectId]: marks } }
-          : s
-      ),
-    }));
-  }
-
-  function removeStudent(studentId) {
-    setSheet((prev) => ({
-      ...prev,
-      students: prev.students.filter((s) => s.student_id !== studentId),
-    }));
-  }
-
-  const fullMarksTotal = sheet.subjects.reduce(
-    (sum, sub) => sum + (Number(sub.fullMarks) || 0),
-    0
-  );
-
-  function obtainedFor(student) {
-    return sheet.subjects.reduce(
-      (sum, sub) => sum + (Number(student.marks[sub.id]) || 0),
-      0
-    );
-  }
-
-  // Column sums for the Excel-style footer row.
-  const columnSums = sheet.subjects.map((sub) =>
-    sheet.students.reduce((sum, s) => sum + (Number(s.marks[sub.id]) || 0), 0)
-  );
-  const grandTotalObtained = sheet.students.reduce(
-    (sum, s) => sum + obtainedFor(s),
-    0
-  );
 
   return (
-    <div>
-      <button
-        onClick={onCancel}
-        className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-white/60 hover:text-navy-900 dark:hover:text-white mb-4 transition-colors"
-      >
-        <ArrowLeft size={15} />
-        Back to marksheets
-      </button>
-
-      {/* Header inputs */}
-      <div className="flex flex-wrap gap-3 mb-5">
-        <input
-          type="text"
-          placeholder="Class (e.g. Grade 11 Science A)"
-          value={sheet.className}
-          onChange={(e) => updateField("className", e.target.value)}
-          className="border border-gray-300 dark:border-white/10 dark:bg-navy-800 dark:text-white rounded-md px-3 py-2 text-sm bg-white flex-1 min-w-[220px]"
-        />
-        <input
-          type="text"
-          placeholder="Exam name (e.g. Mid-term 2083)"
-          value={sheet.examName}
-          onChange={(e) => updateField("examName", e.target.value)}
-          className="border border-gray-300 dark:border-white/10 dark:bg-navy-800 dark:text-white rounded-md px-3 py-2 text-sm bg-white flex-1 min-w-[220px]"
-        />
-        <button
-          onClick={() => onSave(sheet)}
-          className="flex items-center gap-2 bg-navy-800 hover:bg-navy-700 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors"
-        >
-          <Save size={15} />
-          Save marksheet
-        </button>
-      </div>
-
-      {/* Subjects manager */}
-      <div className="bg-white dark:bg-navy-800 rounded-xl shadow-sm p-5 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-navy-900 dark:text-white font-semibold">Subjects</h2>
-          <button
-            onClick={addSubject}
-            className="flex items-center gap-1 text-sm text-indigo-700 hover:underline"
-          >
-            <Plus size={14} /> Add subject
-          </button>
+    <DashboardLayout pageTitle="Exams & Marks" pageSubtitle="Create marksheets and record exam results">
+      {toast.msg && (
+        <div className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+          toast.type === 'success'
+            ? 'border-status-verified/30 bg-status-verified/5 text-status-verified'
+            : 'border-status-tampered/30 bg-status-tampered/5 text-status-tampered'
+        }`}>
+          {toast.msg}
         </div>
-        <div className="flex flex-wrap gap-3">
-          {sheet.subjects.map((sub) => (
-            <div
-              key={sub.id}
-              className="flex items-center gap-2 border border-gray-200 dark:border-white/10 rounded-md px-3 py-2"
+      )}
+
+      {mode === 'editor' && editorClassId ? (
+        <MarksheetEditor
+          classId={editorClassId}
+          editExamName={editExamName}
+          onCancel={() => {
+            setMode('list');
+            setEditorClassId(null);
+            setEditExamName(null);
+            examsFetch.retry();
+          }}
+          onSaved={(res) => {
+            setToast({ type: 'success', msg: res.message || 'Marksheet saved' });
+            setMode('list');
+            setEditorClassId(null);
+            setEditExamName(null);
+            examsFetch.retry();
+          }}
+        />
+      ) : (
+        <div className="space-y-6">
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-text-muted">
+              {exams.length} marksheet{exams.length === 1 ? '' : 's'} recorded
+            </p>
+            <select
+              onChange={(e) => e.target.value && openNew(Number(e.target.value))}
+              value=""
+              className="rounded-lg border border-border bg-surface text-text-main
+                         text-xs font-medium px-3 py-2.5 focus:outline-none focus:border-primary"
             >
-              <input
-                type="text"
-                value={sub.name}
-                onChange={(e) => updateSubject(sub.id, "name", e.target.value)}
-                className="text-sm font-medium text-navy-900 dark:text-white bg-transparent focus:outline-none w-28"
-              />
-              <span className="text-gray-300">/</span>
-              <input
-                type="number"
-                value={sub.fullMarks}
-                onChange={(e) => updateSubject(sub.id, "fullMarks", e.target.value)}
-                className="text-sm text-gray-500 dark:text-white/60 bg-transparent focus:outline-none w-14"
-              />
-              <button
-                onClick={() => removeSubject(sub.id)}
-                className="text-gray-300 hover:text-danger transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Marks table — Excel-like: editable cells, computed totals */}
-      <div className="bg-white dark:bg-navy-800 rounded-xl shadow-sm p-5 overflow-x-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-navy-900 dark:text-white font-semibold">
-            Enter marks
-          </h2>
-          <button
-            onClick={addStudent}
-            className="flex items-center gap-1 text-sm text-indigo-700 hover:underline"
-          >
-            <Plus size={14} /> Add student
-          </button>
-        </div>
-
-        <table className="w-full text-sm min-w-[600px]">
-          <thead>
-            <tr className="text-left text-gray-500 dark:text-white/50 border-b border-gray-200 dark:border-white/10">
-              <th className="py-2 pr-3 font-medium">Roll</th>
-              <th className="py-2 pr-3 font-medium">Student Name</th>
-              {sheet.subjects.map((sub) => (
-                <th key={sub.id} className="py-2 pr-3 font-medium text-right">
-                  {sub.name || "—"} <span className="text-gray-400">/{sub.fullMarks}</span>
-                </th>
+              <option value="">+ New marksheet for…</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
-              <th className="py-2 pr-3 font-medium text-right">Total</th>
-              <th className="py-2 pr-3 font-medium text-right">%</th>
-              <th className="py-2 pr-3 font-medium text-right">Grade</th>
-              <th className="py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {sheet.students.map((s) => {
-              const obtained = obtainedFor(s);
-              const pct = fullMarksTotal ? (obtained / fullMarksTotal) * 100 : 0;
-              return (
-                <tr key={s.student_id} className="border-b border-gray-100 dark:border-white/10">
-                  <td className="py-2 pr-3">
-                    <input
-                      type="text"
-                      value={s.roll_number}
-                      onChange={(e) =>
-                        updateStudent(s.student_id, "roll_number", e.target.value)
-                      }
-                      className="w-12 bg-transparent focus:outline-none text-gray-700 dark:text-white/80"
-                    />
-                  </td>
-                  <td className="py-2 pr-3">
-                    <input
-                      type="text"
-                      placeholder="Student name"
-                      value={s.name}
-                      onChange={(e) =>
-                        updateStudent(s.student_id, "name", e.target.value)
-                      }
-                      className="bg-transparent focus:outline-none text-navy-900 dark:text-white font-medium w-full"
-                    />
-                  </td>
-                  {sheet.subjects.map((sub) => (
-                    <td key={sub.id} className="py-2 pr-3 text-right">
-                      <input
-                        type="number"
-                        min={0}
-                        max={sub.fullMarks}
-                        value={s.marks[sub.id] ?? ""}
-                        onChange={(e) =>
-                          updateMark(s.student_id, sub.id, e.target.value)
-                        }
-                        className="w-16 border border-gray-200 dark:border-white/10 rounded px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-navy-600/30 dark:bg-navy-900 dark:text-white"
-                      />
-                    </td>
-                  ))}
-                  <td className="py-2 pr-3 text-right font-semibold text-navy-900 dark:text-white">
-                    {obtained}/{fullMarksTotal}
-                  </td>
-                  <td className="py-2 pr-3 text-right text-gray-600 dark:text-white/70">
-                    {pct.toFixed(1)}%
-                  </td>
-                  <td className="py-2 pr-3 text-right font-semibold text-indigo-700 dark:text-indigo-100">
-                    {gradeFor(pct)}
-                  </td>
-                  <td className="py-2 text-right">
+            </select>
+          </div>
+
+          {examsFetch.loading && <SkeletonTable rows={4} cols={4} />}
+          {!examsFetch.loading && examsFetch.error && (
+            <ErrorState title="Couldn't load exams" message={examsFetch.error} onRetry={examsFetch.retry} />
+          )}
+
+          {!examsFetch.loading && !examsFetch.error && exams.length === 0 && (
+            <EmptyState
+              icon="📝"
+              title="No marksheets yet"
+              message="Pick a class from the dropdown above to start a new exam marksheet."
+            />
+          )}
+
+          {!examsFetch.loading && !examsFetch.error && exams.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {exams.map((ex, idx) => (
+                <div
+                  key={`${ex.exam_name}-${ex.class_id}-${idx}`}
+                  className="bg-surface border border-border rounded-2xl p-5 hover:border-primary transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-text-main truncate">{ex.exam_name}</h3>
+                      <p className="text-xs text-text-muted truncate">{ex.class_name}</p>
+                    </div>
+                    <span className="text-[10px] uppercase tracking-wider text-text-muted font-semibold shrink-0">
+                      {new Date(ex.exam_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {ex.subjects.map((s) => (
+                      <span
+                        key={s.exam_id}
+                        className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium
+                                   bg-primary-subtle text-primary"
+                      >
+                        {s.subject} · {s.marks_count}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
+                    <span className="text-text-muted">
+                      {ex.total_subjects} subject{ex.total_subjects === 1 ? '' : 's'} · {ex.marks_recorded} mark{ex.marks_recorded === 1 ? '' : 's'}
+                    </span>
                     <button
-                      onClick={() => removeStudent(s.student_id)}
-                      className="text-gray-300 hover:text-danger transition-colors"
+                      onClick={() => openExisting(ex)}
+                      className="font-medium text-primary hover:text-primary-active"
                     >
-                      <Trash2 size={14} />
+                      Open & edit →
                     </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          {/* Excel-style totals footer row */}
-          <tfoot>
-            <tr className="border-t-2 border-gray-300 dark:border-white/20 font-semibold text-navy-900 dark:text-white">
-              <td className="py-2 pr-3" colSpan={2}>
-                Column totals
-              </td>
-              {columnSums.map((sum, i) => (
-                <td key={sheet.subjects[i].id} className="py-2 pr-3 text-right">
-                  {sum}
-                </td>
+                  </div>
+                </div>
               ))}
-              <td className="py-2 pr-3 text-right">{grandTotalObtained}</td>
-              <td colSpan={3}></td>
-            </tr>
-          </tfoot>
-        </table>
+            </div>
+          )}
 
-        <div className="mt-5 bg-anchored/10 border border-anchored/30 text-sm text-indigo-800 dark:text-indigo-100 rounded-md px-4 py-3">
-         
         </div>
-      </div>
-    </div>
+      )}
+    </DashboardLayout>
   );
 }
